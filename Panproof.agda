@@ -12,6 +12,7 @@ data Sort : Set where
 data Signature : Set where
   MkSignature : List (Sort × String) → Signature
 {-# COMPILE AGDA2HS Signature newtype #-}
+
 getSig : Signature → List (Sort × String) 
 getSig (MkSignature s) = s
 {-# COMPILE AGDA2HS getSig #-}
@@ -41,7 +42,7 @@ data _⊢t_⦂_ : Signature → PreTerm → Sort → Set where
 
   ⊢App : ∀ {Γ t₁ S₁ t₂ S₂}
     → Γ ⊢t t₁ ⦂ S₁ :→ S₂
-    → Γ ⊢t t₂ ⦂ S₂
+    → Γ ⊢t t₂ ⦂ S₁
     ----------------------
     → Γ ⊢t t₁ :·: t₂ ⦂ S₂
 
@@ -57,5 +58,11 @@ open Term public
 
 testTerm : Term
 testTerm = record {sig = exmplSig; term = testPreTerm; sort = 𝔹;
-   typing = {!   !}}
+   typing = ⊢App (⊢App (⊢Var refl) (⊢Var refl)) (⊢Var refl)}
 {-# COMPILE AGDA2HS testTerm #-}
+
+typecheck : Signature → PreTerm → Maybe Term 
+typecheck Γ t@(Var n) with n < lengthNat (getSig Γ)
+... | True = Just (MkTerm Γ t {!  fst ((getSig Γ) !!ᴺ n) !} {! ⊢Var  ? !})
+... | False = Nothing
+typecheck Γ t@(t₁ :·: t₂) = {!   !}
