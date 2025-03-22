@@ -7,7 +7,7 @@ infixr 30 _:→_
 data Sort : Set where
     𝔹 : Sort
     _:→_ : Sort → Sort → Sort
-{-# COMPILE AGDA2HS Sort #-}
+{-# COMPILE AGDA2HS Sort deriving (Show) #-}
 
 data Signature : Set where
   MkSignature : List (Sort × String) → Signature
@@ -46,23 +46,40 @@ data _⊢t_⦂_ : Signature → PreTerm → Sort → Set where
     ----------------------
     → Γ ⊢t t₁ :·: t₂ ⦂ S₂
 
-record Term : Set where 
+record Term (@0 Γ : Signature) : Set where 
   constructor MkTerm
   field
-    sig : Signature
     term : PreTerm
     sort : Sort
-    @0 typing : (sig ⊢t term ⦂ sort)
+    @0 typing : (Γ ⊢t term ⦂ sort)
 open Term public
 {-# COMPILE AGDA2HS Term deriving (Show) #-}
 
-testTerm : Term
-testTerm = record {sig = exmplSig; term = testPreTerm; sort = 𝔹;
-   typing = ⊢App (⊢App (⊢Var refl) (⊢Var refl)) (⊢Var refl)}
+-- testTerm : Term
+-- testTerm = record {sig = exmplSig; term = testPreTerm; sort = 𝔹;
+--    typing = ⊢App (⊢App (⊢Var refl) (⊢Var refl)) (⊢Var refl)}
+-- {-# COMPILE AGDA2HS testTerm #-}
+
+testTerm : (Term exmplSig)
+testTerm = record {term = testPreTerm; sort = 𝔹;
+   typing = ⊢App (⊢App (⊢Var refl) (⊢Var refl)) (⊢Var refl)}  
 {-# COMPILE AGDA2HS testTerm #-}
 
-typecheck : Signature → PreTerm → Maybe Term 
-typecheck Γ t@(Var n) with n < lengthNat (getSig Γ)
-... | True = Just (MkTerm Γ t {!  fst ((getSig Γ) !!ᴺ n) !} {! ⊢Var  ? !})
-... | False = Nothing
-typecheck Γ t@(t₁ :·: t₂) = {!   !}
+useEq : {x y : Bool} → y ≡ x → IsTrue x → IsTrue y
+useEq {True} {True} eq is = IsTrue.itsTrue
+
+typecheck : (Γ : Signature) → PreTerm → Maybe (Term Γ)
+typecheck gamma (Var n) = if n < lengthNat (getSig gamma) then
+    (λ ⦃ n<gamma ⦄ → Just (MkTerm (Var n) (fst (_!!ᴺ_ (getSig gamma) n ⦃ useEq n<gamma IsTrue.itsTrue ⦄)) (⊢Var ⦃ useEq n<gamma IsTrue.itsTrue ⦄ refl)))
+  else Nothing
+typecheck gamma (t₁ :·: t₂) = typecheck gamma t₁ >>= (λ s₁ → typecheck gamma t₂ >>= λ s₂ →
+  Just (MkTerm ((term s₁) :·: (term s₂)) {!   !} (⊢App (typing {! s₁ !}) (typing s₂)))) 
+
+-- typecheck : Signature → PreTerm → Maybe Term 
+-- typecheck gamma (Var n) = if n < lengthNat (getSig gamma) then
+--     (λ ⦃ n<gamma ⦄ → Just (MkTerm gamma (Var n) (fst (_!!ᴺ_ (getSig gamma) n ⦃ useEq n<gamma IsTrue.itsTrue ⦄)) (⊢Var ⦃ useEq n<gamma IsTrue.itsTrue ⦄ refl)))
+--   else Nothing
+-- typecheck gamma (t₁ :·: t₂) = typecheck gamma t₁ >>= (λ s₁ → typecheck gamma t₂ >>= λ s₂ →
+--   Nothing) --Just (MkTerm gamma t {!   !} (⊢App (typing {!  s₁ !}) {!   !}))) 
+
+{-# COMPILE AGDA2HS typecheck #-}
