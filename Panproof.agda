@@ -3,6 +3,7 @@ module Panproof where
 open import Haskell.Prelude
 open import Haskell.Law.Eq
 open import Haskell.Law.Equality
+open import Haskell.Law.Bool
 open import Haskell.Extra.Dec
 open import Haskell.Extra.Sigma
 
@@ -57,6 +58,28 @@ Signature : Set
 Signature = List (Sort × String) 
 {-# COMPILE AGDA2HS Signature #-}
 
+data Idx : Set where
+  IH : Idx
+  IT : Idx → Idx
+{-# COMPILE AGDA2HS Idx (Show) #-}
+
+-- Sort lookup evidence
+data _[_]=_ : Signature → Idx → Sort → Set where
+  IsHere : ∀ {Γ s l} → ((s , l) ∷ Γ) [ IH ]= s
+  IsThere : ∀ {Γ idx s e} → Γ [ idx ]= s → (e ∷ Γ) [ IT idx ]= s
+
+lookupSort : ∀ (ctx : Signature) (n : Idx) → Maybe Sort
+lookupSort [] _ = Nothing
+lookupSort ((s , _) ∷ _) IH = Just s
+lookupSort (_ ∷ ctx) (IT n) = lookupSort ctx n
+{-# COMPILE AGDA2HS lookupSort #-}
+
+lookupSortCorrect : ∀ (ctx : Signature) (n : Idx)
+                    → ⦃ h : IsJust (lookupSort ctx n) ⦄
+                    → ctx [ n ]= fromJust (lookupSort ctx n) {h}
+lookupSortCorrect (x ∷ ctx) IH = IsHere
+lookupSortCorrect (x ∷ ctx) (IT n) = IsThere (lookupSortCorrect ctx n)
+
 exmplSig : Signature
 exmplSig = (𝔹 , "a") ∷ (𝔹 , "b") ∷ (𝔹 , "c") ∷ 
      (𝔹 , "true") ∷ (𝔹 , "false") ∷ (𝔹 :→ 𝔹 , "not") ∷ (𝔹 :→ 𝔹 :→ 𝔹 , "and") ∷ (𝔹 :→ 𝔹 :→ 𝔹 , "or") ∷ []
@@ -64,19 +87,22 @@ exmplSig = (𝔹 , "a") ∷ (𝔹 , "b") ∷ (𝔹 , "c") ∷
 
 infixl 30 _:·:_
 data Term : Set where
-  Var : Nat → Term
+  Var : Idx → Term
   _:·:_ : Term → Term → Term
 {-# COMPILE AGDA2HS Term deriving (Show) #-}
 
+pattern la = Var IH 
+pattern lb = Var (IT IH) 
+pattern land = Var (IT (IT (IT (IT (IT (IT IH)))))) 
+
 testTerm : Term
-testTerm = Var 6 :·: Var 0 :·: Var 1
+testTerm = land :·: la :·: lb
 {-# COMPILE AGDA2HS testTerm #-}
 
 -- Typing relation
 data _⊢_⦂_ : Signature → Term → Sort → Set where
   ⊢Var : ∀ {Γ n S}
-    → ⦃ n<Γ : IsTrue (n < lengthNat Γ)⦄
-    → fst (Γ !!ᴺ n) ≡ S 
+    → ⦃ Γ[n]=S : Γ [ n ]= S ⦄
     → Γ ⊢ Var n ⦂ S
 
   ⊢App : ∀ {Γ t₁ S₁ t₂ S₂}
@@ -85,18 +111,38 @@ data _⊢_⦂_ : Signature → Term → Sort → Set where
     ----------------------
     → Γ ⊢ t₁ :·: t₂ ⦂ S₂
 
-getSort : (ctx : Signature) → (t : Term) → Maybe (Σ[ s ∈ Sort ] ctx ⊢ t ⦂ s)
-getSort ctx (Var n) = if n < lengthNat ctx then
-    (λ where ⦃ n<ctx ⦄ → Just ((fst (_!!ᴺ_ ctx n ⦃ useEq n<ctx IsTrue.itsTrue ⦄)) , (⊢Var ⦃ useEq n<ctx IsTrue.itsTrue ⦄ refl)))
-  else Nothing
-getSort ctx (t₁ :·: t₂) = Nothing -- do
-  -- s₁ ← getSort ctx t₁
-  -- s₂ ← getSort ctx t₂
-  -- case (sort s₁) of λ where
-  --   (u₁ :→ u₂) ⦃ refl ⦄ → do
-  --     if (sort s₂) == u₁ then (λ ⦃ h ⦄ → Just (MkTerm ((term s₁) :·: (term s₂))
-  --                                                      u₂
-  --                                                      (⊢App (typing s₁) (subst (λ p → ctx ⊢t term s₂ ⦂ p) (equality (sort s₂) u₁ h) (typing s₂))))) 
-  --                         else Nothing
-  --   _ → Nothing
+getSort : (ctx : Signature) → (t : Term) → Maybe Sort
+getSort ctx (Var n) = lookupSort ctx n
+getSort ctx (t₁ :·: t₂) = do
+  s₁ ← getSort ctx t₁
+  s₂ ← getSort ctx t₂
+  case s₁ of λ where
+    (u₁ :→ u₂) ⦃ refl ⦄ → if s₂ == u₁ then Just u₂ else Nothing
+    _ → Nothing
 {-# COMPILE AGDA2HS getSort #-}
+
+getSortCorrect : (ctx : Signature) (t : Term)
+               → ⦃ h : IsJust (getSort ctx t) ⦄
+               → ctx ⊢ t ⦂ (fromJust (getSort ctx t) { h })
+getSortCorrect ctx (Var n) ⦃ h ⦄ = ⊢Var ⦃ lookupSortCorrect ctx n ⦄
+getSortCorrect ctx (t₁ :·: t₂) ⦃ h ⦄ = 
+  let h₁ = getSortCorrect ctx t₁
+      h₂ = getSortCorrect ctx t₂
+  in 
+  ⊢App {!h₁ ⦃ ? ⦄ !} (h₂ ⦃ {!   !} ⦄)
+
+-- getSort : (ctx : Signature) → (t : Term) → Maybe (Σ[ s ∈ Sort ] ctx ⊢ t ⦂ s)
+-- getSort ctx (Var n) = Nothing {- if n < lengthNat ctx then
+--     (λ where ⦃ n<ctx ⦄ → Just ((fst (_!!ᴺ_ ctx n ⦃ useEq n<ctx IsTrue.itsTrue ⦄)) , (⊢Var ⦃ useEq n<ctx IsTrue.itsTrue ⦄ refl)))
+--   else Nothing -}
+-- getSort ctx (t₁ :·: t₂) = Nothing -- do
+--   -- s₁ ← getSort ctx t₁
+--   -- s₂ ← getSort ctx t₂
+--   -- case (sort s₁) of λ where
+--   --   (u₁ :→ u₂) ⦃ refl ⦄ → do
+--   --     if (sort s₂) == u₁ then (λ ⦃ h ⦄ → Just (MkTerm ((term s₁) :·: (term s₂))
+--   --                                                      u₂
+--   --                                                      (⊢App (typing s₁) (subst (λ p → ctx ⊢t term s₂ ⦂ p) (equality (sort s₂) u₁ h) (typing s₂))))) 
+--   --                         else Nothing
+--   --   _ → Nothing
+-- {-# COMPILE AGDA2HS getSort #-}
