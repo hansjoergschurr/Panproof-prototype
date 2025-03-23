@@ -3,6 +3,7 @@ module Panproof where
 open import Haskell.Prelude
 open import Haskell.Law.Eq
 open import Haskell.Law.Equality
+open import Haskell.Extra.Dec
 -- TODO: I should not import this here
 open import Haskell.Prim
 
@@ -10,13 +11,15 @@ open import Haskell.Prim
 useEq : {x y : Bool} → y ≡ x → IsTrue x → IsTrue y
 useEq {True} {True} eq is = IsTrue.itsTrue
 
-
 infixr 30 _:→_
 
 data Sort : Set where
     𝔹 : Sort
     _:→_ : Sort → Sort → Sort
-{-# COMPILE AGDA2HS Sort deriving (Show) #-}
+{-# COMPILE AGDA2HS Sort deriving (Show, Eq) #-}
+
+postulate instance isSortEq : Eq Sort
+postulate instance isSortLawfulEq : IsLawfulEq Sort
 
 isFunSort : Sort → Bool
 isFunSort 𝔹 = False
@@ -31,21 +34,25 @@ domainSort : (s : Sort) → ⦃ @0 h₁ : ((isFunSort s) ≡ True) ⦄ → Sort
 domainSort (s :→ s₁) = s
 {-# COMPILE AGDA2HS domainSort #-}
 
-instance
-  isSortEq : Eq Sort
-  isSortEq ._==_ 𝔹 𝔹 = True
-  isSortEq ._==_ (s₁ :→ t₁) (s₂ :→ t₂) = s₁ == s₂ && t₁ == t₂
-  isSortEq ._==_ _ _ = False
-{-# COMPILE AGDA2HS isSortEq #-}
+{- This doesn't pass the termination checker.  That seems common.  For example, here:
+https://github.com/sarajuhosova/agda2hs-playground/blob/master/agda/TypeCheck/Type.agda
+a TERMINATING annotation is used.  Using derive + postulate seems more close to idiomatic
+Haskell code -}
+-- instance
+--   isSortEq : Eq Sort
+--   isSortEq ._==_ 𝔹 𝔹 = True
+--   isSortEq ._==_ (s₁ :→ t₁) (s₂ :→ t₂) = s₁ == s₂ && t₁ == t₂
+--   isSortEq ._==_ _ _ = False
+-- {-# COMPILE AGDA2HS isSortEq #-}
 
-instance
-  isLawfulSortEq : IsLawfulEq Sort
-  isLawfulSortEq .isEquality 𝔹 𝔹 = refl
-  isLawfulSortEq .isEquality (x :→ x₁) (y :→ y₁) with x == y in eq
-  ... | False = λ h → exFalso (equality' x y (cong (λ {𝔹 → 𝔹
-                                                     ; (p :→ p₁) → p}) h)) eq
-  isLawfulSortEq .isEquality 𝔹 (y :→ y₁) = λ ()
-  isLawfulSortEq .isEquality (x :→ x₁) 𝔹 = λ ()
+-- instance
+--   isLawfulSortEq : IsLawfulEq Sort
+--   isLawfulSortEq .isEquality 𝔹 𝔹 = refl
+--   isLawfulSortEq .isEquality (x₁ :→ x₂) (y₁ :→ y₂) with x₁ == y₁ in eq₁
+--   ... | True = mapReflects ((λ h → cong₂ _:→_ (equality x₁ y₁ eq₁) h)) (cong (λ {𝔹 → 𝔹 ; (p :→ s) → s})) (isEquality x₂ y₂)
+--   ... | False = λ h → exFalso (equality' x₁ y₁ (cong (λ {𝔹 → 𝔹 ; (p :→ s) → p}) h)) eq₁
+--   isLawfulSortEq .isEquality 𝔹 (_ :→ _) = λ ()
+--   isLawfulSortEq .isEquality (_ :→ _) 𝔹 = λ ()
 
 data Signature : Set where
   MkSignature : List (Sort × String) → Signature
@@ -75,7 +82,7 @@ testPreTerm = Var 6 :·: Var 0 :·: Var 1
 data _⊢t_⦂_ : Signature → PreTerm → Sort → Set where
   ⊢Var : ∀ {Γ n S}
     → ⦃ n<Γ : IsTrue (n < lengthNat (getSig Γ))⦄
-    → fst ((getSig Γ) !!ᴺ n) ≡ S
+    → fst ((getSig Γ) !!ᴺ n) ≡ S 
     → Γ ⊢t Var n ⦂ S
 
   ⊢App : ∀ {Γ t₁ S₁ t₂ S₂}
@@ -93,32 +100,23 @@ record Term (@0 Γ : Signature) : Set where
 open Term public
 {-# COMPILE AGDA2HS Term deriving (Show) #-}
 
--- testTerm : Term
--- testTerm = record {sig = exmplSig; term = testPreTerm; sort = 𝔹;
---    typing = ⊢App (⊢App (⊢Var refl) (⊢Var refl)) (⊢Var refl)}
--- {-# COMPILE AGDA2HS testTerm #-}
-
 testTerm : (Term exmplSig)
 testTerm = record {term = testPreTerm; sort = 𝔹;
    typing = ⊢App (⊢App (⊢Var refl) (⊢Var refl)) (⊢Var refl)}  
 {-# COMPILE AGDA2HS testTerm #-}
 
 typecheck : (Γ : Signature) → PreTerm → Maybe (Term Γ)
-typecheck gamma (Var n) = if n < lengthNat (getSig gamma) then
-    (λ ⦃ n<gamma ⦄ → Just (MkTerm (Var n) (fst (_!!ᴺ_ (getSig gamma) n ⦃ useEq n<gamma IsTrue.itsTrue ⦄)) (⊢Var ⦃ useEq n<gamma IsTrue.itsTrue ⦄ refl)))
+typecheck ctx (Var n) = if n < lengthNat (getSig ctx) then
+    (λ ⦃ n<ctx ⦄ → Just (MkTerm (Var n) (fst (_!!ᴺ_ (getSig ctx) n ⦃ useEq n<ctx IsTrue.itsTrue ⦄)) (⊢Var ⦃ useEq n<ctx IsTrue.itsTrue ⦄ refl)))
   else Nothing
-typecheck gamma (t₁ :·: t₂) = typecheck gamma t₁ >>=
-                      (λ s₁ → typecheck gamma t₂ >>= λ s₂ →
-  if isFunSort (sort s₁) then
-    if {! codomainSort (sort s₁)  !} == {!   !} then {!   !}
-     else Nothing else Nothing)
-  -- Just (MkTerm ((term s₁) :·: (term s₂)) {!   !} (⊢App (typing {! s₁ !}) (typing s₂)))) 
-
--- typecheck : Signature → PreTerm → Maybe Term 
--- typecheck gamma (Var n) = if n < lengthNat (getSig gamma) then
---     (λ ⦃ n<gamma ⦄ → Just (MkTerm gamma (Var n) (fst (_!!ᴺ_ (getSig gamma) n ⦃ useEq n<gamma IsTrue.itsTrue ⦄)) (⊢Var ⦃ useEq n<gamma IsTrue.itsTrue ⦄ refl)))
---   else Nothing
--- typecheck gamma (t₁ :·: t₂) = typecheck gamma t₁ >>= (λ s₁ → typecheck gamma t₂ >>= λ s₂ →
---   Nothing) --Just (MkTerm gamma t {!   !} (⊢App (typing {!  s₁ !}) {!   !}))) 
-
+typecheck ctx (t₁ :·: t₂) = do
+  s₁ ← typecheck ctx t₁
+  s₂ ← typecheck ctx t₂
+  case (sort s₁) of λ where
+    (u₁ :→ u₂) ⦃ refl ⦄ → do
+      if (sort s₂) == u₁ then (λ ⦃ h ⦄ → Just (MkTerm ((term s₁) :·: (term s₂))
+                                                       u₂
+                                                       (⊢App (typing s₁) (subst (λ p → ctx ⊢t term s₂ ⦂ p) (equality (sort s₂) u₁ h) (typing s₂))))) 
+                          else Nothing
+    _ → Nothing
 {-# COMPILE AGDA2HS typecheck #-}
