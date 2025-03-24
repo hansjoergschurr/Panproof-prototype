@@ -11,6 +11,12 @@ open import Haskell.Extra.Sigma
 useEq : {x y : Bool} → y ≡ x → IsTrue x → IsTrue y
 useEq {True} {True} eq is = IsTrue.itsTrue
 
+buildIsJust : {a : Set} {x : Maybe a} {y : a} → x ≡ Just y → IsJust x
+buildIsJust refl = tt
+
+fromJustCong : {a : Set} {x : Maybe a} {y : a} → (eq : x ≡ Just y) → fromJust x { buildIsJust eq } ≡ fromJust (Just y)
+fromJustCong refl = refl
+
 infixr 30 _:→_
 
 data Sort : Set where
@@ -55,13 +61,13 @@ Haskell code -}
 --   isLawfulSortEq .isEquality (_ :→ _) 𝔹 = λ ()
 
 Signature : Set
-Signature = List (Sort × String) 
+Signature = List (Sort × String)
 {-# COMPILE AGDA2HS Signature #-}
 
 data Idx : Set where
   IH : Idx
   IT : Idx → Idx
-{-# COMPILE AGDA2HS Idx (Show) #-}
+{-# COMPILE AGDA2HS Idx deriving (Show) #-}
 
 -- Sort lookup evidence
 data _[_]=_ : Signature → Idx → Sort → Set where
@@ -81,7 +87,7 @@ lookupSortCorrect (x ∷ ctx) IH = IsHere
 lookupSortCorrect (x ∷ ctx) (IT n) = IsThere (lookupSortCorrect ctx n)
 
 exmplSig : Signature
-exmplSig = (𝔹 , "a") ∷ (𝔹 , "b") ∷ (𝔹 , "c") ∷ 
+exmplSig = (𝔹 , "a") ∷ (𝔹 , "b") ∷ (𝔹 , "c") ∷
      (𝔹 , "true") ∷ (𝔹 , "false") ∷ (𝔹 :→ 𝔹 , "not") ∷ (𝔹 :→ 𝔹 :→ 𝔹 , "and") ∷ (𝔹 :→ 𝔹 :→ 𝔹 , "or") ∷ []
 {-# COMPILE AGDA2HS exmplSig #-}
 
@@ -91,9 +97,9 @@ data Term : Set where
   _:·:_ : Term → Term → Term
 {-# COMPILE AGDA2HS Term deriving (Show) #-}
 
-pattern la = Var IH 
-pattern lb = Var (IT IH) 
-pattern land = Var (IT (IT (IT (IT (IT (IT IH)))))) 
+pattern la = Var IH
+pattern lb = Var (IT IH)
+pattern land = Var (IT (IT (IT (IT (IT (IT IH))))))
 
 testTerm : Term
 testTerm = land :·: la :·: lb
@@ -121,28 +127,26 @@ getSort ctx (t₁ :·: t₂) = do
     _ → Nothing
 {-# COMPILE AGDA2HS getSort #-}
 
+{- This proof is a bit ugly, we should be able to do better here. -}
 getSortCorrect : (ctx : Signature) (t : Term)
                → ⦃ h : IsJust (getSort ctx t) ⦄
                → ctx ⊢ t ⦂ (fromJust (getSort ctx t) { h })
 getSortCorrect ctx (Var n) ⦃ h ⦄ = ⊢Var ⦃ lookupSortCorrect ctx n ⦄
-getSortCorrect ctx (t₁ :·: t₂) ⦃ h ⦄ = 
-  let h₁ = getSortCorrect ctx t₁
-      h₂ = getSortCorrect ctx t₂
-  in 
-  ⊢App {!h₁ ⦃ ? ⦄ !} (h₂ ⦃ {!   !} ⦄)
-
--- getSort : (ctx : Signature) → (t : Term) → Maybe (Σ[ s ∈ Sort ] ctx ⊢ t ⦂ s)
--- getSort ctx (Var n) = Nothing {- if n < lengthNat ctx then
---     (λ where ⦃ n<ctx ⦄ → Just ((fst (_!!ᴺ_ ctx n ⦃ useEq n<ctx IsTrue.itsTrue ⦄)) , (⊢Var ⦃ useEq n<ctx IsTrue.itsTrue ⦄ refl)))
---   else Nothing -}
--- getSort ctx (t₁ :·: t₂) = Nothing -- do
---   -- s₁ ← getSort ctx t₁
---   -- s₂ ← getSort ctx t₂
---   -- case (sort s₁) of λ where
---   --   (u₁ :→ u₂) ⦃ refl ⦄ → do
---   --     if (sort s₂) == u₁ then (λ ⦃ h ⦄ → Just (MkTerm ((term s₁) :·: (term s₂))
---   --                                                      u₂
---   --                                                      (⊢App (typing s₁) (subst (λ p → ctx ⊢t term s₂ ⦂ p) (equality (sort s₂) u₁ h) (typing s₂))))) 
---   --                         else Nothing
---   --   _ → Nothing
--- {-# COMPILE AGDA2HS getSort #-}
+getSortCorrect ctx (t₁ :·: t₂) ⦃ h ⦄ with getSort ctx t₁ in eq₁ | getSort ctx t₂ in eq₂
+... | Just (u₁ :→ u₂) | Just s₂ with s₂ == u₁ in eq₃
+... | True = let 
+                  h₁ = getSortCorrect ctx t₁
+                  h₂ = getSortCorrect ctx t₂
+             in
+              ⊢App 
+                (subst (λ p → ctx ⊢ t₁ ⦂ p)
+                 (begin
+                    fromJust (getSort ctx t₁)
+                  ≡⟨ fromJustCong eq₁ ⟩
+                    fromJust (Just (u₁ :→ u₂))
+                  ≡⟨ cong (λ p → p :→ u₂) (sym $ equality s₂ u₁ eq₃) ⟩ 
+                    fromJust (Just (s₂ :→ u₂))
+                  ≡⟨ cong (λ p → p :→ u₂) (sym $ fromJustCong eq₂) ⟩ 
+                    fromJust (getSort ctx t₂) :→ u₂ ∎)
+                 (h₁ ⦃ buildIsJust eq₁ ⦄)) 
+                (h₂ ⦃ buildIsJust eq₂ ⦄)

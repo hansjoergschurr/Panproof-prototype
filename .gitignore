@@ -2,3 +2,5 @@
 MAlonzo/**
 _build/**
 *.hs
+*.hi
+*.o
