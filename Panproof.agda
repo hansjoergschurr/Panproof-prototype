@@ -67,7 +67,10 @@ Signature = List (Sort × String)
 data Idx : Set where
   IH : Idx
   IT : Idx → Idx
-{-# COMPILE AGDA2HS Idx deriving (Show) #-}
+{-# COMPILE AGDA2HS Idx deriving (Show, Eq) #-}
+
+postulate instance isIdxEq : Eq Idx
+postulate instance isIdxLawfulEq : IsLawfulEq Idx
 
 -- Sort lookup evidence
 data _[_]=_ : Signature → Idx → Sort → Set where
@@ -95,11 +98,18 @@ infixl 30 _:·:_
 data Term : Set where
   Var : Idx → Term
   _:·:_ : Term → Term → Term
-{-# COMPILE AGDA2HS Term deriving (Show) #-}
+{-# COMPILE AGDA2HS Term deriving (Show, Eq) #-}
+
+postulate instance isTermEq : Eq Term
+postulate instance isTermLawfulEq : IsLawfulEq Term
 
 pattern la = Var IH
 pattern lb = Var (IT IH)
-pattern land = Var (IT (IT (IT (IT (IT (IT IH))))))
+pattern ltrue  = Var (IT (IT (IT IH)))
+pattern lfalse = Var (IT (IT (IT (IT IH))))
+pattern lnot   = Var (IT (IT (IT (IT (IT IH)))))
+pattern land   = Var (IT (IT (IT (IT (IT (IT IH))))))
+pattern lor    = Var (IT (IT (IT (IT (IT (IT (IT IH)))))))
 
 testTerm : Term
 testTerm = land :·: la :·: lb
@@ -155,13 +165,13 @@ getSortCorrect ctx (t₁ :·: t₂) ⦃ h ⦄ with getSort ctx t₁ in eq₁ | g
 -- getSort' _ _ = Nothing
 -- {-# COMPILE AGDA2HS getSort' #-}
 
-record Sequent : Set where
+record Sequent (@0 Γ : Signature) : Set where
+  constructor _:⊢_
   field
-    sequentCtx : Signature
     antecedent : List Term 
     conclusion : Term
-    @0 {antecedentTyped} : All (λ {t → (getSort sequentCtx t) ≡ (Just 𝔹)}) antecedent
-    @0 {conclusionTyped} : getSort sequentCtx conclusion ≡ Just 𝔹 
+    -- @0 {antecedentTyped} : All (λ {t → (getSort Γ t) ≡ (Just 𝔹)}) antecedent
+    -- @0 {conclusionTyped} : getSort Γ conclusion ≡ Just 𝔹 
 open Sequent public
 {-# COMPILE AGDA2HS Sequent #-}
 
@@ -169,26 +179,75 @@ Args : Set
 Args = List Term
 {-# COMPILE AGDA2HS Args #-}
 
-record Step : Set
+record Step (@0 Γ : Signature) : Set 
 
-data ProofRule : Set where
-  Axiom :  (check : (               Args → Maybe Sequent)) → ProofRule
-  Oracle : (check : (List Sequent → Args → Maybe Sequent)) → ProofRule 
+data ProofRule (@0 Γ : Signature) : Set where
+  Axiom : (check : (List (Sequent Γ) → Args → Maybe (Sequent Γ))) → ProofRule Γ
   Rule :
-      (check     : (List Sequent → Args → Maybe Sequent))
-    → (elaborate : (List Sequent → Args → Maybe Step))
+      (check     : (List (Sequent Γ) → Args → Maybe (Sequent Γ)))
+    → (elaborate : (List (Sequent Γ) → Args → Maybe (Step Γ)))
     -- TODO check and elaborate agree
     ---------------------------------------------------
-    → ProofRule
+    → ProofRule Γ
 {-# COMPILE AGDA2HS ProofRule #-}
 
-record Step where
+record Step Γ where
   inductive
   field
-    stepCtx : Signature
-    stepRule : ProofRule
-    stepPremises : List Step
+    stepRule : ProofRule Γ 
+    stepPremises : List (Step Γ)
     stepArgs : Args
     -- TODO: typing of args?
 open Step public
 {-# COMPILE AGDA2HS Step #-}
+
+-----------------------
+-- Some Axioms
+-----------------------
+
+axTrue : ProofRule exmplSig
+axTrue = Axiom (λ _ _ → Just ([] :⊢ ltrue))
+{-# COMPILE AGDA2HS axTrue #-}
+
+axAndI : ProofRule exmplSig
+axAndI = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check ((a1 :⊢ x) ∷ (a2 :⊢ y) ∷ []) _ = Just ((a1 ++ a2) :⊢ (land :·: x :·: y))
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axAndI #-}
+
+-- axAndE1 : ProofRule exmplSig
+-- axAndE1 = Axiom λ {(a :⊢ (land :·: x :·: y) ∷ []) _ → Just (a :⊢ x); _ _ → Nothing}
+-- {-# COMPILE AGDA2HS axAndE1 #-}
+
+-- axAndE2 : ProofRule exmplSig
+-- axAndE2 = Axiom λ {(a :⊢ (land :·: x :·: y) ∷ []) _ → Just (a :⊢ y); _ _ → Nothing}
+-- {-# COMPILE AGDA2HS axAndE2 #-}
+
+-- axNotnotI : ProofRule exmplSig
+-- axNotnotI = Axiom λ {(a :⊢ f ∷ []) _ → Just (a :⊢ lnot :·: (lnot :·: f)); _ _ → Nothing}
+-- {-# COMPILE AGDA2HS axNotnotI #-}
+
+-- axNotnotE : ProofRule exmplSig
+-- axNotnotE = Axiom λ {(a :⊢ lnot :·: (lnot :·: f) ∷ []) _ → Just (a :⊢ f); _ _ → Nothing}
+-- {-# COMPILE AGDA2HS axNotnotE #-}
+
+-- axOrI1 : ProofRule exmplSig
+-- axOrI1 = Axiom λ {(a :⊢ f ∷ []) (g ∷ []) → Just (a :⊢ lor :·: f :·: g ); _ _ → Nothing}
+-- {-# COMPILE AGDA2HS axOrI1 #-}
+
+-- axOrI2 : ProofRule exmplSig
+-- axOrI2 = Axiom λ {(a :⊢ g ∷ []) (f ∷ []) → Just (a :⊢ lor :·: f :·: g ); _ _ → Nothing}
+-- {-# COMPILE AGDA2HS axOrI2 #-}
+
+-- axOrE : ProofRule exmplSig
+-- axOrE = Axiom λ { (      a :⊢ lor :·: f :·: g ∷
+--                     (f₁ ∷ a₁) :⊢ c₁ ∷
+--                     (f₂ ∷ a₂) :⊢ c₂ ∷ []) _ →
+--                     if f == f₁ && f == f₂ && a == a₁ && a == a₂ && c₁ == c₂ then
+--                       Just (a :⊢ c₁)
+--                     else
+--                       Nothing
+--                     ; _ _ → Nothing}
+-- {-# COMPILE AGDA2HS axOrE #-}
