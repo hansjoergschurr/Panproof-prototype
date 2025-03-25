@@ -150,3 +150,45 @@ getSortCorrect ctx (t₁ :·: t₂) ⦃ h ⦄ with getSort ctx t₁ in eq₁ | g
                     fromJust (getSort ctx t₂) :→ u₂ ∎)
                  (h₁ ⦃ buildIsJust eq₁ ⦄)) 
                 (h₂ ⦃ buildIsJust eq₂ ⦄)
+
+-- getSort' : (ctx : Signature) → (t : Term) → Maybe (Σ[ s ∈ Sort ] ctx ⊢ t ⦂ s)
+-- getSort' _ _ = Nothing
+-- {-# COMPILE AGDA2HS getSort' #-}
+
+record Sequent : Set where
+  field
+    sequentCtx : Signature
+    antecedent : List Term 
+    conclusion : Term
+    @0 {antecedentTyped} : All (λ {t → (getSort sequentCtx t) ≡ (Just 𝔹)}) antecedent
+    @0 {conclusionTyped} : getSort sequentCtx conclusion ≡ Just 𝔹 
+open Sequent public
+{-# COMPILE AGDA2HS Sequent #-}
+
+Args : Set
+Args = List Term
+{-# COMPILE AGDA2HS Args #-}
+
+record Step : Set
+
+data ProofRule : Set where
+  Axiom :  (check : (               Args → Maybe Sequent)) → ProofRule
+  Oracle : (check : (List Sequent → Args → Maybe Sequent)) → ProofRule 
+  Rule :
+      (check     : (List Sequent → Args → Maybe Sequent))
+    → (elaborate : (List Sequent → Args → Maybe Step))
+    -- TODO check and elaborate agree
+    ---------------------------------------------------
+    → ProofRule
+{-# COMPILE AGDA2HS ProofRule #-}
+
+record Step where
+  inductive
+  field
+    stepCtx : Signature
+    stepRule : ProofRule
+    stepPremises : List Step
+    stepArgs : Args
+    -- TODO: typing of args?
+open Step public
+{-# COMPILE AGDA2HS Step #-}
