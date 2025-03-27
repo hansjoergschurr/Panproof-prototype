@@ -201,9 +201,12 @@ record Step Γ where
 open Step public
 {-# COMPILE AGDA2HS Step #-}
 
------------------------
--- Some Axioms
------------------------
+checkStep : {@0 Γ : Signature} → Step Γ → Maybe (Sequent Γ) 
+
+
+-------------------------------------
+-- Some Axioms (a random collection)
+-------------------------------------
 
 axTrue : ProofRule exmplSig
 axTrue = Axiom (λ _ _ → Just ([] :⊢ ltrue))
@@ -217,37 +220,96 @@ axAndI = Axiom check
     check _ _ = Nothing
 {-# COMPILE AGDA2HS axAndI #-}
 
--- axAndE1 : ProofRule exmplSig
--- axAndE1 = Axiom λ {(a :⊢ (land :·: x :·: y) ∷ []) _ → Just (a :⊢ x); _ _ → Nothing}
--- {-# COMPILE AGDA2HS axAndE1 #-}
+axAndE1 : ProofRule exmplSig
+axAndE1 = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ (land :·: x :·: y) ∷ []) _ = Just (a :⊢ x)
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axAndE1 #-}
 
--- axAndE2 : ProofRule exmplSig
--- axAndE2 = Axiom λ {(a :⊢ (land :·: x :·: y) ∷ []) _ → Just (a :⊢ y); _ _ → Nothing}
--- {-# COMPILE AGDA2HS axAndE2 #-}
+axAndE2 : ProofRule exmplSig
+axAndE2 = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ (land :·: x :·: y) ∷ []) _ = Just (a :⊢ y)
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axAndE2 #-}
 
--- axNotnotI : ProofRule exmplSig
--- axNotnotI = Axiom λ {(a :⊢ f ∷ []) _ → Just (a :⊢ lnot :·: (lnot :·: f)); _ _ → Nothing}
--- {-# COMPILE AGDA2HS axNotnotI #-}
+axNotnotI : ProofRule exmplSig
+axNotnotI = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ f ∷ []) _ = Just (a :⊢ lnot :·: (lnot :·: f))
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axNotnotI #-}
 
--- axNotnotE : ProofRule exmplSig
--- axNotnotE = Axiom λ {(a :⊢ lnot :·: (lnot :·: f) ∷ []) _ → Just (a :⊢ f); _ _ → Nothing}
--- {-# COMPILE AGDA2HS axNotnotE #-}
+axNotnotE : ProofRule exmplSig
+axNotnotE = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ lnot :·: (lnot :·: f) ∷ []) _ = Just (a :⊢ f)
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axNotnotE #-}
 
--- axOrI1 : ProofRule exmplSig
--- axOrI1 = Axiom λ {(a :⊢ f ∷ []) (g ∷ []) → Just (a :⊢ lor :·: f :·: g ); _ _ → Nothing}
--- {-# COMPILE AGDA2HS axOrI1 #-}
+axOrI1 : ProofRule exmplSig
+axOrI1 = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ f ∷ []) (g ∷ []) = Just (a :⊢ lor :·: f :·: g )
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axOrI1 #-}
 
--- axOrI2 : ProofRule exmplSig
--- axOrI2 = Axiom λ {(a :⊢ g ∷ []) (f ∷ []) → Just (a :⊢ lor :·: f :·: g ); _ _ → Nothing}
--- {-# COMPILE AGDA2HS axOrI2 #-}
+axOrI2 : ProofRule exmplSig
+axOrI2 = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ g ∷ []) (f ∷ []) = Just (a :⊢ lor :·: f :·: g )
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axOrI2 #-}
 
--- axOrE : ProofRule exmplSig
--- axOrE = Axiom λ { (      a :⊢ lor :·: f :·: g ∷
---                     (f₁ ∷ a₁) :⊢ c₁ ∷
---                     (f₂ ∷ a₂) :⊢ c₂ ∷ []) _ →
---                     if f == f₁ && f == f₂ && a == a₁ && a == a₂ && c₁ == c₂ then
---                       Just (a :⊢ c₁)
---                     else
---                       Nothing
---                     ; _ _ → Nothing}
--- {-# COMPILE AGDA2HS axOrE #-}
+axOrE : ProofRule exmplSig
+axOrE = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ lor :·: f :·: g ∷ (f₁ ∷ a₁) :⊢ c₁ ∷ (f₂ ∷ a₂) :⊢ c₂ ∷ []) _ = 
+      if f == f₁ && f == f₂ && a == a₁ && a == a₂ && c₁ == c₂ then
+        Just (a :⊢ c₁)
+      else
+        Nothing
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axOrE #-}
+
+axOrFalseE : ProofRule exmplSig
+axOrFalseE = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ lfalse ∷ []) (f ∷ []) = Just (a :⊢ f)
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axOrFalseE #-}
+
+axNotE : ProofRule exmplSig
+axNotE = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a₁ :⊢ f₁ ∷ a₂ :⊢ lnot :·: f₂ ∷ []) (f ∷ []) =
+       if a₁ == a₂ && f₁ == f₂ then Just (a₁ :⊢ lfalse) else Nothing
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axNotE #-}
+
+
+axNegI : ProofRule exmplSig
+axNegI = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check ((f ∷ a) :⊢ lfalse ∷ []) _ = Just (a :⊢ f)
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axNotE #-}
+
+axPBC : ProofRule exmplSig
+axPBC = Axiom check
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (((lnot :·: f) ∷ a) :⊢ lfalse ∷ []) _ = Just (a :⊢ f)
+    check _ _ = Nothing
+{-# COMPILE AGDA2HS axNotE #-}
