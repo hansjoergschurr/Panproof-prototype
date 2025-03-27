@@ -179,30 +179,41 @@ Args : Set
 Args = List Term
 {-# COMPILE AGDA2HS Args #-}
 
-record Step (@0 Γ : Signature) : Set 
+data Step (@0 Γ : Signature) : Set 
+
+-- Abstract Proof checker to use in proof of equivalence
+checkStep : {@0 Γ : Signature} → Maybe (Step Γ) → Maybe (Sequent Γ) 
+-- Reimplementation of mapM for our case to make the terminatino checker happy.
+checkMap : {@0 Γ : Signature} → List (Step Γ) → Maybe (List (Sequent Γ))
 
 data ProofRule (@0 Γ : Signature) : Set where
   Axiom : (check : (List (Sequent Γ) → Args → Maybe (Sequent Γ))) → ProofRule Γ
   Rule :
       (check     : (List (Sequent Γ) → Args → Maybe (Sequent Γ)))
     → (elaborate : (List (Sequent Γ) → Args → Maybe (Step Γ)))
-    -- TODO check and elaborate agree
+    → (@0 proof : ((prem : List (Sequent Γ)) → (args : Args) → (check prem args) ≡ (checkStep (elaborate prem args))))
     ---------------------------------------------------
     → ProofRule Γ
 {-# COMPILE AGDA2HS ProofRule #-}
 
-record Step Γ where
-  inductive
-  field
-    stepRule : ProofRule Γ 
-    stepPremises : List (Step Γ)
-    stepArgs : Args
+data Step Γ where
+  MkStep :
+      ProofRule Γ 
+    → List (Step Γ)
+    → Args
+    → Step Γ
     -- TODO: typing of args?
-open Step public
 {-# COMPILE AGDA2HS Step #-}
 
-checkStep : {@0 Γ : Signature} → Step Γ → Maybe (Sequent Γ) 
+checkMap [] = Just []
+checkMap (s ∷ ss) = do
+  ss' ← checkMap ss 
+  s' ← checkStep (Just s)
+  Just (s' ∷ ss')
 
+checkStep Nothing = Nothing
+checkStep (Just (MkStep (Axiom check)            prem args)) = checkMap prem >>= λ p → check p args
+checkStep (Just (MkStep (Rule check elaborate _) prem args)) = checkMap prem >>= λ p → check p args
 
 -------------------------------------
 -- Some Axioms (a random collection)
@@ -297,7 +308,6 @@ axNotE = Axiom check
     check _ _ = Nothing
 {-# COMPILE AGDA2HS axNotE #-}
 
-
 axNegI : ProofRule exmplSig
 axNegI = Axiom check
   where
@@ -313,3 +323,26 @@ axPBC = Axiom check
     check (((lnot :·: f) ∷ a) :⊢ lfalse ∷ []) _ = Just (a :⊢ f)
     check _ _ = Nothing
 {-# COMPILE AGDA2HS axNotE #-}
+
+ruleAndE3 : ProofRule exmplSig
+ruleAndE3 = Rule check {!   !} {!   !}
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ = Just (a :⊢ u)
+    check _ _ = Nothing
+
+    elaborate : List (Sequent exmplSig) → Args → Maybe (Step exmplSig)
+    elaborate (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ = Just (MkStep axAndE2 (MkStep axAndE2 {!   !} [] ∷ []) [])
+    elaborate _ _ = Nothing
+
+    proof : (prem : List (Sequent exmplSig)) → (args : Args) → (check prem args) ≡ (checkStep (elaborate prem args))   
+    proof [] _ = refl
+    proof ((_ :⊢ (land :·: f :·: (land :·: g :·: u))) ∷ _) _ = {!   !}
+    proof ((_ :⊢ Var x) ∷ _) _ = refl
+    proof ((_ :⊢ (Var x :·: _)) ∷ _) _ = refl
+    proof ((_ :⊢ (_ :·: _ :·: _ :·: _)) ∷ _) _ = refl
+    proof ((_ :⊢ (Var n :·: x₂ :·: x₁)) ∷ _) _ = {!   !}
+
+{-# COMPILE AGDA2HS axOrI2 #-}
+   
+_ = {! checkStep (MkStep axTrue [] [])  !}
