@@ -182,21 +182,26 @@ Args = List Term
 data Step (@0 Γ : Signature) : Set 
 
 -- Abstract Proof checker to use in proof of equivalence
-checkStep : {@0 Γ : Signature} → Maybe (Step Γ) → Maybe (Sequent Γ) 
+-- checkStep : {@0 Γ : Signature} → Maybe (Step Γ) → Maybe (Sequent Γ) 
 -- Reimplementation of mapM for our case to make the terminatino checker happy.
-checkMap : {@0 Γ : Signature} → List (Step Γ) → Maybe (List (Sequent Γ))
+-- checkMap : {@0 Γ : Signature} → List (Step Γ) → Maybe (List (Sequent Γ))
 
 data ProofRule (@0 Γ : Signature) : Set where
   Axiom : (check : (List (Sequent Γ) → Args → Maybe (Sequent Γ))) → ProofRule Γ
   Rule :
       (check     : (List (Sequent Γ) → Args → Maybe (Sequent Γ)))
     → (elaborate : (List (Sequent Γ) → Args → Maybe (Step Γ)))
-    → (@0 proof : ((prem : List (Sequent Γ)) → (args : Args) → (check prem args) ≡ (checkStep (elaborate prem args))))
+    -- → (@0 proof : ((prem : List (Step Γ)) → (args : Args) →
+    --                (check prem args) ≡ (checkStep (elaborate prem args))))
     ---------------------------------------------------
     → ProofRule Γ
 {-# COMPILE AGDA2HS ProofRule #-}
 
 data Step Γ where
+  MkAssume :
+    Sequent Γ
+    → Step Γ
+
   MkStep :
       ProofRule Γ 
     → List (Step Γ)
@@ -205,15 +210,21 @@ data Step Γ where
     -- TODO: typing of args?
 {-# COMPILE AGDA2HS Step #-}
 
-checkMap [] = Just []
-checkMap (s ∷ ss) = do
-  ss' ← checkMap ss 
-  s' ← checkStep (Just s)
-  Just (s' ∷ ss')
+data Evidence (@0 Γ : Signature) (prem : List (Sequent Γ)) (s : Step Γ) (ref : Sequent Γ) : Set where
+  AssumeEvidence : 
+      Σ[ i ∈ Nat ] (prem !!ᴺ i ≡ ref)
+    → Evidence Γ prem (MkAssume ref) ref
 
-checkStep Nothing = Nothing
-checkStep (Just (MkStep (Axiom check)            prem args)) = checkMap prem >>= λ p → check p args
-checkStep (Just (MkStep (Rule check elaborate _) prem args)) = checkMap prem >>= λ p → check p args
+
+-- checkMap [] = Just []
+-- checkMap (s ∷ ss) = do
+--   ss' ← checkMap ss 
+--   s' ← checkStep (Just s)
+--   Just (s' ∷ ss')
+
+-- checkStep Nothing = Nothing
+-- checkStep (Just (MkStep (Axiom check)            prem args)) = checkMap prem >>= λ p → check p args
+-- checkStep (Just (MkStep (Rule check elaborate _) prem args)) = checkMap prem >>= λ p → check p args
 
 -------------------------------------
 -- Some Axioms (a random collection)
@@ -324,25 +335,29 @@ axPBC = Axiom check
     check _ _ = Nothing
 {-# COMPILE AGDA2HS axNotE #-}
 
-ruleAndE3 : ProofRule exmplSig
-ruleAndE3 = Rule check {!   !} {!   !}
-  where
-    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
-    check (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ = Just (a :⊢ u)
-    check _ _ = Nothing
+-- ruleAndE3 : ProofRule exmplSig
+-- ruleAndE3 = Rule check {!   !} {!   !}
+--   where
+--     check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+--     check (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ = Just (a :⊢ u)
+--     check _ _ = Nothing
 
-    elaborate : List (Sequent exmplSig) → Args → Maybe (Step exmplSig)
-    elaborate (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ = Just (MkStep axAndE2 (MkStep axAndE2 {!   !} [] ∷ []) [])
-    elaborate _ _ = Nothing
+--     elaborate : List (Sequent exmplSig) → Args → Maybe (Step exmplSig)
+--     elaborate (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ = Just (MkStep axAndE2 (MkStep axAndE2 {!   !} [] ∷ []) [])
+--     elaborate _ _ = Nothing
 
-    proof : (prem : List (Sequent exmplSig)) → (args : Args) → (check prem args) ≡ (checkStep (elaborate prem args))   
-    proof [] _ = refl
-    proof ((_ :⊢ (land :·: f :·: (land :·: g :·: u))) ∷ _) _ = {!   !}
-    proof ((_ :⊢ Var x) ∷ _) _ = refl
-    proof ((_ :⊢ (Var x :·: _)) ∷ _) _ = refl
-    proof ((_ :⊢ (_ :·: _ :·: _ :·: _)) ∷ _) _ = refl
-    proof ((_ :⊢ (Var n :·: x₂ :·: x₁)) ∷ _) _ = {!   !}
+--     proof : (prem : List (Sequent exmplSig)) → (args : Args) → (check prem args) ≡ (checkStep (elaborate prem args))   
+--     proof [] _ = refl
+--     proof ((_ :⊢ (land :·: f :·: (land :·: g :·: u))) ∷ _) _ = {!   !}
+--     proof ((_ :⊢ Var x) ∷ _) _ = refl
+--     proof ((_ :⊢ (Var x :·: _)) ∷ _) _ = refl
+--     proof ((_ :⊢ (_ :·: _ :·: _ :·: _)) ∷ _) _ = refl
+--     proof prem@((_ :⊢ (Var n :·: x₂ :·: x₁)) ∷ _) args with (Var n) == land in eq
+--     ... | False with checkStep (elaborate prem args)
+--     ... | Nothing = {!   !}
+--     ... | Just foo = {!   !}
+--     proof ((_ :⊢ (Var n :·: x₂ :·: x₁)) ∷ _) _ | True = case equality (Var n) land eq of λ where refl → {!   !}
 
-{-# COMPILE AGDA2HS axOrI2 #-}
+-- {-# COMPILE AGDA2HS axOrI2 #-}
    
-_ = {! checkStep (MkStep axTrue [] [])  !}
+-- _ = {! checkStep (MkStep axTrue [] [])  !}
