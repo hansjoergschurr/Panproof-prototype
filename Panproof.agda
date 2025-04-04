@@ -91,7 +91,7 @@ lookupSortCorrect (x ∷ ctx) (IT n) = IsThere (lookupSortCorrect ctx n)
 
 exmplSig : Signature
 exmplSig = (𝔹 , "a") ∷ (𝔹 , "b") ∷ (𝔹 , "c") ∷
-     (𝔹 , "true") ∷ (𝔹 , "false") ∷ (𝔹 :→ 𝔹 , "not") ∷ (𝔹 :→ 𝔹 :→ 𝔹 , "and") ∷ (𝔹 :→ 𝔹 :→ 𝔹 , "or") ∷ []
+     (𝔹 :→ 𝔹 :→ 𝔹 , "and") ∷ (𝔹 :→ 𝔹 :→ 𝔹 , "or") ∷ (𝔹 :→ 𝔹 , "not") ∷ (𝔹 , "true") ∷ (𝔹 , "false") ∷ []
 {-# COMPILE AGDA2HS exmplSig #-}
 
 infixl 30 _:·:_
@@ -103,13 +103,14 @@ data Term : Set where
 postulate instance isTermEq : Eq Term
 postulate instance isTermLawfulEq : IsLawfulEq Term
 
-pattern la = Var IH
-pattern lb = Var (IT IH)
-pattern ltrue  = Var (IT (IT (IT IH)))
-pattern lfalse = Var (IT (IT (IT (IT IH))))
+pattern la     = Var IH
+pattern lb     = Var (IT IH)
+pattern lc     = Var (IT (IT IH))
+pattern land   = Var (IT (IT (IT IH)))
+pattern lor    = Var (IT (IT (IT (IT IH))))
 pattern lnot   = Var (IT (IT (IT (IT (IT IH)))))
-pattern land   = Var (IT (IT (IT (IT (IT (IT IH))))))
-pattern lor    = Var (IT (IT (IT (IT (IT (IT (IT IH)))))))
+pattern ltrue  = Var (IT (IT (IT (IT (IT (IT IH))))))
+pattern lfalse = Var (IT (IT (IT (IT (IT (IT (IT IH)))))))
 
 testTerm : Term
 testTerm = land :·: la :·: lb
@@ -175,56 +176,57 @@ record Sequent (@0 Γ : Signature) : Set where
 open Sequent public
 {-# COMPILE AGDA2HS Sequent #-}
 
+-- TODO: do I need to define this, or does it exist somewhere?
+data _∈_ : {Γ : Signature} → Sequent Γ → List (Sequent Γ) → Set where
+  ∈H : ∀ {Γ t ts} → _∈_ {Γ} t (t ∷ ts)
+  ∈T : ∀ {Γ t x ts} → _∈_ {Γ} t ts → _∈_ {Γ} t (x ∷ ts)  
+
 Args : Set
 Args = List Term
 {-# COMPILE AGDA2HS Args #-}
 
-data Step (@0 Γ : Signature) : Set 
+data Step (@0 Γ : Signature) (@0 prem : List (Sequent Γ)) : Set 
 
 -- Abstract Proof checker to use in proof of equivalence
--- checkStep : {@0 Γ : Signature} → Maybe (Step Γ) → Maybe (Sequent Γ) 
+checkStep : {@0 Γ : Signature} {@0 prem : List (Sequent Γ)} → Maybe (Step Γ prem) → Maybe (Sequent Γ) 
 -- Reimplementation of mapM for our case to make the terminatino checker happy.
--- checkMap : {@0 Γ : Signature} → List (Step Γ) → Maybe (List (Sequent Γ))
+checkMap : {@0 Γ : Signature} {@0 prem : List (Sequent Γ)} → List (Step Γ prem) → Maybe (List (Sequent Γ))
 
 data ProofRule (@0 Γ : Signature) : Set where
   Axiom : (check : (List (Sequent Γ) → Args → Maybe (Sequent Γ))) → ProofRule Γ
   Rule :
       (check     : (List (Sequent Γ) → Args → Maybe (Sequent Γ)))
-    → (elaborate : (List (Sequent Γ) → Args → Maybe (Step Γ)))
-    -- → (@0 proof : ((prem : List (Step Γ)) → (args : Args) →
-    --                (check prem args) ≡ (checkStep (elaborate prem args))))
+    → (elaborate : (prems : List (Sequent Γ)) → Args → Maybe (Step Γ prems))
+    → (@0 proof : ((prem : List (Sequent Γ)) → (args : Args) →
+                   (check prem args) ≡ (checkStep (elaborate prem args))))
     ---------------------------------------------------
     → ProofRule Γ
 {-# COMPILE AGDA2HS ProofRule #-}
 
-data Step Γ where
-  MkAssume :
-    Sequent Γ
-    → Step Γ
+data Step Γ prem where
+  MkAssume : 
+      (s : Sequent Γ)
+    → @0 s ∈ prem
+    → Step Γ prem
 
   MkStep :
       ProofRule Γ 
-    → List (Step Γ)
+    → List (Step Γ prem)
     → Args
-    → Step Γ
+    → Step Γ prem
     -- TODO: typing of args?
 {-# COMPILE AGDA2HS Step #-}
 
-data Evidence (@0 Γ : Signature) (prem : List (Sequent Γ)) (s : Step Γ) (ref : Sequent Γ) : Set where
-  AssumeEvidence : 
-      Σ[ i ∈ Nat ] (prem !!ᴺ i ≡ ref)
-    → Evidence Γ prem (MkAssume ref) ref
+checkMap [] = Just []
+checkMap (s ∷ ss) = do
+  ss' ← checkMap ss 
+  s' ← checkStep (Just s)
+  Just (s' ∷ ss')
 
-
--- checkMap [] = Just []
--- checkMap (s ∷ ss) = do
---   ss' ← checkMap ss 
---   s' ← checkStep (Just s)
---   Just (s' ∷ ss')
-
--- checkStep Nothing = Nothing
--- checkStep (Just (MkStep (Axiom check)            prem args)) = checkMap prem >>= λ p → check p args
--- checkStep (Just (MkStep (Rule check elaborate _) prem args)) = checkMap prem >>= λ p → check p args
+checkStep {Γ} Nothing = Nothing
+checkStep {Γ} (Just (MkAssume s _)) = Just s
+checkStep {Γ} (Just (MkStep (Axiom check)            prem args)) = checkMap prem >>= λ p → check p args
+checkStep {Γ} (Just (MkStep (Rule check elaborate _) prem args)) = checkMap prem >>= λ p → check p args
 
 -------------------------------------
 -- Some Axioms (a random collection)
@@ -233,6 +235,13 @@ data Evidence (@0 Γ : Signature) (prem : List (Sequent Γ)) (s : Step Γ) (ref 
 axTrue : ProofRule exmplSig
 axTrue = Axiom (λ _ _ → Just ([] :⊢ ltrue))
 {-# COMPILE AGDA2HS axTrue #-}
+
+axAssume : ProofRule exmplSig
+axAssume = Axiom check
+  where check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+        check [] (t ∷ []) = Just ((t ∷ []) :⊢ t)
+        check _ _ = Nothing
+{-# COMPILE AGDA2HS axAssume #-}
 
 axAndI : ProofRule exmplSig
 axAndI = Axiom check
@@ -294,8 +303,10 @@ axOrE : ProofRule exmplSig
 axOrE = Axiom check
   where
     check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
-    check (a :⊢ lor :·: f :·: g ∷ (f₁ ∷ a₁) :⊢ c₁ ∷ (f₂ ∷ a₂) :⊢ c₂ ∷ []) _ = 
-      if f == f₁ && f == f₂ && a == a₁ && a == a₂ && c₁ == c₂ then
+    check (        a :⊢ lor :·: f :·: g ∷ 
+           (f₁ ∷ a₁) :⊢ c₁ ∷
+           (g₁ ∷ a₂) :⊢ c₂ ∷ []) _ = 
+      if f == f₁ && g == g₁ && a == a₁ && a == a₂ && c₁ == c₂ then
         Just (a :⊢ c₁)
       else
         Nothing
@@ -325,7 +336,7 @@ axNegI = Axiom check
     check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
     check ((f ∷ a) :⊢ lfalse ∷ []) _ = Just (a :⊢ f)
     check _ _ = Nothing
-{-# COMPILE AGDA2HS axNotE #-}
+{-# COMPILE AGDA2HS axNegI #-}
 
 axPBC : ProofRule exmplSig
 axPBC = Axiom check
@@ -333,31 +344,38 @@ axPBC = Axiom check
     check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
     check (((lnot :·: f) ∷ a) :⊢ lfalse ∷ []) _ = Just (a :⊢ f)
     check _ _ = Nothing
-{-# COMPILE AGDA2HS axNotE #-}
+{-# COMPILE AGDA2HS axPBC #-}
 
--- ruleAndE3 : ProofRule exmplSig
--- ruleAndE3 = Rule check {!   !} {!   !}
---   where
---     check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
---     check (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ = Just (a :⊢ u)
---     check _ _ = Nothing
+ruleAndE3 : ProofRule exmplSig
+ruleAndE3 = Rule check elaborate proof
+  where
+    check : List (Sequent exmplSig) → Args → Maybe (Sequent exmplSig)
+    check (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) ea = Just (a :⊢ u)
+    check _ _ = Nothing
 
---     elaborate : List (Sequent exmplSig) → Args → Maybe (Step exmplSig)
---     elaborate (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ = Just (MkStep axAndE2 (MkStep axAndE2 {!   !} [] ∷ []) [])
---     elaborate _ _ = Nothing
+    elaborate : (prems : List (Sequent exmplSig)) → Args → Maybe (Step exmplSig prems)
+    elaborate (a :⊢ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ =
+      let p = (a :⊢ (land :·: f :·: (land :·: g :·: u))) in
+       Just (MkStep axAndE2 (MkStep axAndE2 (MkAssume p ∈H ∷ []) [] ∷ []) [])
+    elaborate _ _ = Nothing
 
---     proof : (prem : List (Sequent exmplSig)) → (args : Args) → (check prem args) ≡ (checkStep (elaborate prem args))   
---     proof [] _ = refl
---     proof ((_ :⊢ (land :·: f :·: (land :·: g :·: u))) ∷ _) _ = {!   !}
---     proof ((_ :⊢ Var x) ∷ _) _ = refl
---     proof ((_ :⊢ (Var x :·: _)) ∷ _) _ = refl
---     proof ((_ :⊢ (_ :·: _ :·: _ :·: _)) ∷ _) _ = refl
---     proof prem@((_ :⊢ (Var n :·: x₂ :·: x₁)) ∷ _) args with (Var n) == land in eq
---     ... | False with checkStep (elaborate prem args)
---     ... | Nothing = {!   !}
---     ... | Just foo = {!   !}
---     proof ((_ :⊢ (Var n :·: x₂ :·: x₁)) ∷ _) _ | True = case equality (Var n) land eq of λ where refl → {!   !}
-
--- {-# COMPILE AGDA2HS axOrI2 #-}
+    proof : (prem : List (Sequent exmplSig)) → (args : Args) → (check prem args) ≡ (checkStep (elaborate prem args))  
+    proof [] a = refl
+    proof ((_ :⊢ (land :·: f :·: (land :·: g :·: u))) ∷ [])    _ = refl
+    proof ((_ :⊢ Var x) ∷ _)                                   _ = refl
+    proof ((_ :⊢ (Var x :·: _))                           ∷ _) _ = refl
+    proof ((_ :⊢ (la :·: _ :·: _))                        ∷ _) _ = refl
+    proof ((_ :⊢ (lb :·: _ :·: _))                        ∷ _) _ = refl
+    proof ((_ :⊢ (lc :·: _ :·: _))                        ∷ _) _ = refl
+    proof ((_ :⊢ (Var (IT (IT (IT (IT x)))) :·: _ :·: _)) ∷ _) _ = refl
+    proof ((_ :⊢ (_ :·: _ :·: _ :·: _)) ∷ _)                   _ = refl
+    proof ((_ :⊢ (land :·: _ :·: Var x)) ∷ _)                  _ = refl
+    proof ((_ :⊢ (land :·: _ :·: (Var x :·: _))) ∷ _)          _ = refl
+    proof ((_ :⊢ (land :·: _ :·: (la :·: _ :·: _))) ∷ _)       _ = refl
+    proof ((_ :⊢ (land :·: _ :·: (lb :·: _ :·: _))) ∷ _)       _ = refl
+    proof ((_ :⊢ (land :·: _ :·: (lc :·: _ :·: _))) ∷ _)       _ = refl
+    proof ((_ :⊢ (land :·: _ :·: (Var (IT (IT (IT (IT x)))) :·: _ :·: _))) ∷ _) _ = refl
+    proof ((_ :⊢ (land :·: _ :·: (_ :·: _ :·: _ :·: _))) ∷ _)  _ = refl
+    proof ((_ :⊢ (land :·: _ :·: (land :·: _ :·: _))) ∷ _ ∷ _) _ = refl
+{-# COMPILE AGDA2HS ruleAndE3 #-}
    
--- _ = {! checkStep (MkStep axTrue [] [])  !}
