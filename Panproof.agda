@@ -359,7 +359,7 @@ ruleAndE3 = Rule check elaborate proof
        Just (MkStep axAndE2 (MkStep axAndE2 (MkAssume p ∈H ∷ []) [] ∷ []) [])
     elaborate _ _ = Nothing
 
-    proof : (prem : List (Sequent exmplSig)) → (args : Args) → (check prem args) ≡ (checkStep (elaborate prem args))  
+    @0 proof : (prem : List (Sequent exmplSig)) → (args : Args) → (check prem args) ≡ (checkStep (elaborate prem args))
     proof [] a = refl
     proof ((_ :⊢ (land :·: f :·: (land :·: g :·: u))) ∷ [])    _ = refl
     proof ((_ :⊢ Var x) ∷ _)                                   _ = refl
