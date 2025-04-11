@@ -1,4 +1,4 @@
-module Terms where
+module Core.Terms where
 
 open import Haskell.Prelude
 open import Haskell.Law.Eq
@@ -60,7 +60,7 @@ data _:⊢_ : @0 Signature → @0 Sort → Set where
    → Γ :⊢ (S :→ T) 
    → Γ :⊢ S 
    → Γ :⊢ T
-{-# COMPILE AGDA2HS _:⊢_ deriving (Show, Eq) #-}
+{-# COMPILE AGDA2HS _:⊢_ deriving (Eq) #-}
 
 postulate instance isTermEq : ∀ {Γ S} → Eq (Γ :⊢ S)
 postulate instance isTermLawfulEq : ∀ {Γ S} →  IsLawfulEq (Γ :⊢ S)
@@ -78,7 +78,7 @@ pattern la     = V (InS (InS (InS (InS (InS InZ)))))
 pattern lb     = V (InS (InS (InS (InS (InS (InS InZ))))))
 pattern lc     = V (InS (InS (InS (InS (InS (InS (InS InZ)))))))
 
--- Safe lookup of variables
+-- Safe lookup of variables (currently unused)
 -- TODO: proof correct (i.e. returned element is ith sort in Γ)
 mkVar : (Γ : Signature) → (i : Int) → Maybe (Σ[ s ∈ Sort ] (Γ :∋ s))
 mkVar [] _ = Nothing
@@ -88,18 +88,24 @@ mkVar (x ∷ xs) i = if i == 0 then Just (x , InZ) else
     (Just (s , idx)) → Just (s , InS idx)
 {-# COMPILE AGDA2HS mkVar #-}
 
+mkCnst : (Γ : Signature) (i : Int) → Maybe (Σ[ s ∈ Sort ] (Γ :⊢ s))
+mkCnst ctx i = case mkVar ctx i of λ where 
+  Nothing -> Nothing
+  (Just (s , idx)) → Just (s , V idx)
+{-# COMPILE AGDA2HS mkCnst #-}
+
 getSort : ∀ (Γ : Signature) {@0 s : Sort} → Γ :⊢ s → ∃ Sort (λ t → s ≡ t)
 getSort ctx (V x) = lookupIdx ctx x ⟨ sym (lookupIdxCorrect x) ⟩
 getSort ctx (_:·:_ {S = su} t u) = case (getSort ctx t) of λ where -- Renaming "S" here results in su beeing used in the compiled pattern below.  Otherwise, it tries to use S. Why?
   ((s1 :→ s2) ⟨ refl ⟩) → s2 ⟨ refl ⟩
 {-# COMPILE AGDA2HS getSort #-}
 
-SubstArrowLeft : ∀ {@0 Γ : Signature} {@0 S₁ S₂ T : Sort} → @0 (S₁ ≡ S₂) → (Γ :⊢ (S₁ :→ T)) → (Γ :⊢ (S₂ :→ T))
-SubstArrowLeft refl t = t
-{-# COMPILE AGDA2HS SubstArrowLeft transparent #-}
+substArrowLeft : ∀ {@0 Γ : Signature} {@0 S₁ S₂ T : Sort} → @0 (S₁ ≡ S₂) → (Γ :⊢ (S₁ :→ T)) → (Γ :⊢ (S₂ :→ T))
+substArrowLeft refl t = t
+{-# COMPILE AGDA2HS substArrowLeft transparent #-}
 
 mkApp : ∀ (Γ : Signature) {@0 S₁ S₂ : Sort} → Γ :⊢ S₁ → Γ :⊢ S₂ → Maybe (Σ[ s ∈ Sort ] (Γ :⊢ s))
 mkApp ctx {S₂ = s₂} t₁ t₂ = case getSort ctx t₁ of λ where
-    ((s₁' :→ s₃) ⟨ refl ⟩) → case getSort ctx t₂ of λ where (s₄ ⟨ refl ⟩) → if s₁' == s₄ then (λ ⦃ h ⦄ → Just (s₃ , SubstArrowLeft (equality s₁' s₂ h) t₁ :·: t₂)) else Nothing 
+    ((s₁' :→ s₃) ⟨ refl ⟩) → case getSort ctx t₂ of λ where (s₄ ⟨ refl ⟩) → if s₁' == s₄ then (λ ⦃ h ⦄ → Just (s₃ , substArrowLeft (equality s₁' s₂ h) t₁ :·: t₂)) else Nothing 
     (𝔹 ⟨ _ ⟩) → Nothing
 {-# COMPILE AGDA2HS mkApp #-}

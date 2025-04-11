@@ -1,0 +1,29 @@
+cabal-version:      3.0
+name:               Panproof
+version:            0.1.0.0
+
+-- A short (one-line) description of the package.
+-- synopsis:
+
+-- A longer description of the package.
+-- description:
+
+-- URL for the project homepage or repository.
+homepage:           schurr.io
+author:             Hans-Joerg Schurr
+maintainer:         hans-joerg@schurr.at
+build-type:         Simple
+
+executable Panproof
+    main-is:          Main.hs
+    other-modules:    API, Core.Terms
+    default-extensions: TypeOperators, PatternSynonyms
+
+    -- Other library packages from which modules are imported.
+    build-depends:    base ^>=4.18.2.1, mtl >= 2.3, transformers >= 0.6
+
+    -- Directories containing source files.
+    hs-source-dirs:   src/haskell
+
+    -- Base language which the package is written in.
+    default-language: Haskell2010

@@ -1,6 +1,9 @@
 *.agdai
 MAlonzo/**
 _build/**
-*.hs
 *.hi
 *.o
+src/haskell/Core/**
+Exp*
+dist-newstyle/
+Panproof.hs
