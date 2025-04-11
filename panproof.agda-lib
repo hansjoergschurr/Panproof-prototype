@@ -1,4 +1,4 @@
 name: panproof
-include: .
+include: ./src/agda
 depend: agda2hs
 flags: --erasure
