@@ -19,6 +19,7 @@ module API (Term,
 import Control.Monad.Reader
 -- import Control.Monad.Trans.Class (lift)
 import qualified Core.Terms as T
+import qualified Core.Proofs as P
 
 type Term = (T.:⊢)
 
@@ -79,3 +80,8 @@ instance Show (T.:⊢) where
     case T.mkApp ctx l1 l2 of
         Nothing -> error "App: type checking error!" -- TODO: use IO exceptions
         Just (_, t) -> return t
+
+type Sequent = T.(:⇒)
+
+-- TODO: this is not safe.  We should model a safe API on the Agda side
+mkAssume :: [Term] -> Term -> 

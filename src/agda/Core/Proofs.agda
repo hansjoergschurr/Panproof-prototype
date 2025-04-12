@@ -71,7 +71,7 @@ checkStep {Γ} (Just (MkStep (Axiom check)            prem args)) = checkMap pre
 checkStep {Γ} (Just (MkStep (Rule check elaborate _) prem args)) = checkMap prem >>= λ p → check p args
 
 -------------------------------------
--- Some Axioms (a random collection)
+-- Some Axioms
 -------------------------------------
 
 axTrue : ProofRule sig
