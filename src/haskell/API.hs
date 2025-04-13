@@ -13,23 +13,62 @@ module API (Term,
             lnot,
             lA,
             lB,
-            lC
+            lC,
+            Step,
+            pattern Assume,
+            pattern Step,
+            Sequent,
+            ProofRule (..),
+            mkAssume,
+            mkStep,
+            axTrue,
+            axAssume,
+            axAndI,
+            axAndE1,
+            axAndE2,
+            axNotnotI,
+            axNotnotE,
+            axOrI1,
+            axOrI2,
+            axOrE,
+            axOrFalseE,
+            axNotE,
+            axNegI,
+            axPBC,
+            ruleAndE3 
            )  where
 
 import Control.Monad.Reader
--- import Control.Monad.Trans.Class (lift)
 import qualified Core.Terms as T
 import qualified Core.Proofs as P
+-- TODO: is there a better way to do this?
+import Core.Proofs (ProofRule (..),
+    axTrue,
+    axAssume,
+    axAndI,
+    axAndE1,
+    axAndE2,
+    axNotnotI,
+    axNotnotE,
+    axOrI1,
+    axOrI2,
+    axOrE,
+    axOrFalseE,
+    axNotE,
+    axNegI,
+    axPBC,
+    ruleAndE3) 
 
 type Term = (T.:⊢)
 
 pattern (:·:) :: Term -> Term -> Term
 pattern (:·:) t1 t2 = t1 T.:·: t2
 
+-- RedearT with signature and premisses
 type Checker = ReaderT T.Signature IO
 
 runChecker :: Checker a -> IO a
-runChecker c = runReaderT c T.sig 
+runChecker c = runReaderT c T.sig
 
 mkCnst :: Int -> Checker Term
 mkCnst i = do
@@ -81,7 +120,39 @@ instance Show (T.:⊢) where
         Nothing -> error "App: type checking error!" -- TODO: use IO exceptions
         Just (_, t) -> return t
 
-type Sequent = T.(:⇒)
+type Sequent = P.Sequent
 
--- TODO: this is not safe.  We should model a safe API on the Agda side
-mkAssume :: [Term] -> Term -> 
+instance Show P.Sequent where
+    show (a P.:⇒ c) = show a ++ " ⇒ " ++ show c
+
+type Step = P.Step
+
+pattern Assume :: [P.Sequent] -> P.Sequent -> P.Step
+pattern Assume prem s = P.MkAssume prem s
+
+pattern Step :: [P.Sequent] -> ProofRule -> [P.Step] -> P.Args -> P.Step
+pattern Step prem rule steps args = P.MkStep prem rule steps args
+{-# COMPLETE Assume, Step #-}
+
+-- TODO: unsafe
+mkSequent :: Term -> Checker Sequent
+mkSequent t = do
+    ctx <- ask
+    if (T.getSort ctx t) == T.𝔹 then
+        return $ (P.:⇒) {P.antecedent = [], P.conclusion = t}
+    else error "mkSequent: wrong sort" 
+
+-- Restricted version with no antecedent
+mkAssume :: [Term] -> Term ->  Checker P.Step
+mkAssume prem t = do
+    ctx <- ask
+    prems <- mapM mkSequent prem
+    case P.mkAssume ctx t prems of
+        Just step -> return step
+        Nothing -> error "mkAssume: term not in premisses"
+
+-- TODO: hightly unsafe
+mkStep :: [Term] -> ProofRule -> [Step] -> Checker Step 
+mkStep prem rule input = do
+    prems <- mapM mkSequent prem
+    return $ P.MkStep prems rule input [] 

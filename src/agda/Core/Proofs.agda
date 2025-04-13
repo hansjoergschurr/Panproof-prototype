@@ -15,13 +15,11 @@ record Sequent (@0 Γ : Signature) : Set where
   field
     antecedent : List (Γ :⊢ 𝔹)
     conclusion : (Γ :⊢ 𝔹) 
-    -- @0 {antecedentTyped} : All (λ {t → (getSort Γ t) ≡ (Just 𝔹)}) antecedent
-    -- @0 {conclusionTyped} : getSort Γ conclusion ≡ Just 𝔹 
 open Sequent public
 {-# COMPILE AGDA2HS Sequent deriving (Eq) #-}
 
-postulate instance isSequentEq : ∀ {Γ : Signature} → Eq (Sequent Γ)
-postulate instance isSequentLawfulEq : ∀ {Γ : Signature} → IsLawfulEq (Sequent Γ)
+postulate instance isSequentEq : ∀ {@0 Γ : Signature} → Eq (Sequent Γ)
+postulate instance isSequentLawfulEq : ∀ {@0 Γ : Signature} → IsLawfulEq (Sequent Γ)
 
 -- TODO: do I need to define this, or does it exist somewhere?
 data _∈_ : {@0 Γ : Signature} → Sequent Γ → List (Sequent Γ) → Set where
@@ -89,20 +87,29 @@ checkStep {Γ} (Just (MkStep _ _ (Rule _ check elaborate _) prem args)) = checkM
 -- Safe API functions
 -------------------------------------
 
-lookupInParam : ∀ {@0 Γ : Signature} → (s : Sequent Γ) → (prem : List (Sequent Γ)) → Dec (s ∈ prem)
+lookupInParam : ∀ {@0 Γ : Signature} → (s : Sequent Γ) → (prem : List (Sequent Γ)) → Dec (_∈_ {Γ} s prem)
 lookupInParam t [] = False ⟨ (λ ()) ⟩
-lookupInParam {Γ} t (x ∷ prem) = if t == x then 
-    (λ ⦃ h ⦄ → True ⟨ (∈H {Γ} (equality t x h)) ⟩)
-  else (λ ⦃ h ⦄ → case lookupInParam t prem of λ where
-      (False ⟨ ¬p ⟩) → False ⟨ {!   !} ⟩ -- (λ {(∈H refl) → {!  nequality h !}
-                              --   ; (∈T p) → {!  !}}) ⟩ 
+lookupInParam {Γ} t (x ∷ prem) =
+    if (isSequentEq {Γ} Eq.== t) x then 
+      (λ ⦃ h  ⦄ → True ⟨ (∈H {Γ} (equality t x h)) ⟩)
+    else (λ ⦃ h ⦄ → case lookupInParam {Γ} t prem of λ where
+      (False ⟨ ¬p ⟩) → False ⟨ notPossible h ¬p ⟩
       (True ⟨ p ⟩) → True ⟨ (∈T p) ⟩
     )
+    where
+      @0 notPossible : ((t == x) ≡ False) → (t ∈ prem → ⊥) → t ∈ (x ∷ prem) → ⊥ 
+      notPossible h ¬p (∈H refl) = nequality t x h refl
+      notPossible h ¬p (∈T p) = ¬p p
+{-# COMPILE AGDA2HS lookupInParam #-}
 
 mkAssume : ∀ {@0 S : Sort} (Γ : Signature) → (t : Γ :⊢ S) → (prem : List (Sequent Γ)) → Maybe (Step Γ prem)
 mkAssume {S} ctx t prems = case (getSort ctx t) of λ where
-  (𝔹 ⟨ refl ⟩) → {! [] :⇒ t  !}
+  (𝔹 ⟨ refl ⟩) → case lookupInParam ([] :⇒ t) prems of (λ where
+      (True ⟨ t∈prems ⟩) → Just (MkAssume prems refl ([] :⇒ t) t∈prems)
+      _ → Nothing
+    )
   _ → Nothing
+{-# COMPILE AGDA2HS mkAssume #-}
 
 -------------------------------------
 -- Some Axioms
