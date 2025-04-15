@@ -35,7 +35,7 @@ data _:∋_ : @0 Signature → @0 Sort → Set where
       ---------
     → B ∷ Γ :∋ A
 
-{-# COMPILE AGDA2HS _:∋_ deriving (Show, Eq) #-}
+{-# COMPILE AGDA2HS _:∋_ deriving (Show, Eq, Ord) #-}
 
 postulate instance is:∋Eq : ∀ {Γ x} → Eq (Γ :∋ x)
 postulate instance is:∋LawfulEq : ∀ {Γ x} → IsLawfulEq (Γ :∋ x)
@@ -60,7 +60,7 @@ data _:⊢_ : @0 Signature → @0 Sort → Set where
    → Γ :⊢ (S :→ T) 
    → Γ :⊢ S 
    → Γ :⊢ T
-{-# COMPILE AGDA2HS _:⊢_ deriving (Eq) #-}
+{-# COMPILE AGDA2HS _:⊢_ deriving (Eq, Ord) #-}
 
 postulate instance isTermEq : ∀ {Γ S} → Eq (Γ :⊢ S)
 postulate instance isTermLawfulEq : ∀ {Γ S} →  IsLawfulEq (Γ :⊢ S)

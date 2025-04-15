@@ -16,7 +16,7 @@ record Sequent (@0 Γ : Signature) : Set where
     antecedent : List (Γ :⊢ 𝔹)
     conclusion : (Γ :⊢ 𝔹) 
 open Sequent public
-{-# COMPILE AGDA2HS Sequent deriving (Eq) #-}
+{-# COMPILE AGDA2HS Sequent deriving (Eq, Ord) #-}
 
 postulate instance isSequentEq : ∀ {@0 Γ : Signature} → Eq (Sequent Γ)
 postulate instance isSequentLawfulEq : ∀ {@0 Γ : Signature} → IsLawfulEq (Sequent Γ)
