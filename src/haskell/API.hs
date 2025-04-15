@@ -136,7 +136,7 @@ mkAssume prem t = do
         Just step -> return step
         Nothing -> error "mkAssume: term not in premisses"
 
--- TODO: hightly unsafe
+-- TODO: highly unsafe
 mkStep :: [Term] -> ProofRule -> [Step] -> Checker Step 
 mkStep prem rule input = do
     prems <- mapM mkSequent prem
