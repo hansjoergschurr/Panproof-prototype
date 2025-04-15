@@ -4,6 +4,7 @@ open import Haskell.Prelude
 
 open import Core.Terms
 open import Core.Proofs
+open import Haskell.Extra.Refinement hiding (proof)
 
 
 -------------------------------------
@@ -156,5 +157,30 @@ ruleAndE3 = Rule "andE3" check elaborate proof
     proof ((_ :⇒ (land :·: _ :·: (_ :·: _ :·: _ :·: _))) ∷ _)  _                    = refl
     proof ((_ :⇒ (land :·: _ :·: (land :·: _ :·: _))) ∷ _ ∷ _) _                    = refl
 {-# COMPILE AGDA2HS ruleAndE3 #-}
+
+ruleOrSym : ProofRule sig
+ruleOrSym = Rule "orSym" check elaborate proof
+  where
+    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    check ([] :⇒ (lor :·: f :·: g) ∷ []) ea = Just ([] :⇒ (lor :·: g :·: f))
+    check _ _ = Nothing
+
+    elaborate : (prems : List (Sequent sig)) → Args sig → Maybe (Step sig prems)
+    elaborate ([] :⇒ (lor :·: f :·: g) ∷ []) _ =
+      let p = ([] :⇒ (lor :·: f :·: g)) in
+       Just (MkStep (p ∷ []) refl
+                    axOrE
+                    (MkAssume (p ∷ []) refl p (∈H refl) ∷
+                     MkStep (p ∷ []) refl axOrI1 (MkStep (p ∷ []) refl axAssume [] (f ∷ []) ∷ []) (g ∷ []) ∷
+                     MkStep (p ∷ []) refl axOrI2 (MkStep (p ∷ []) refl axAssume [] (g ∷ []) ∷ []) (f ∷ [])
+                     ∷ [])
+            [])
+    elaborate _ _ = Nothing
+
+    @0 proof : (prem : List (Sequent sig)) → (args : Args sig) → (check prem args) ≡ (checkStep (elaborate prem args))
+    proof []                             _ = refl
+    proof p@(([] :⇒ (lor :·: f :·: g)) ∷ []) _ = let foo = elaborate p [] in {! refl !}
+{-# COMPILE AGDA2HS ruleAndE3 #-}
+
  
  
