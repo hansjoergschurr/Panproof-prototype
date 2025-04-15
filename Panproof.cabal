@@ -16,7 +16,7 @@ build-type:         Simple
 
 executable Panproof
     main-is:          Main.hs
-    other-modules:    API, Core.Terms, Core.Proofs
+    other-modules:    API, Core.Terms, Core.Proofs, Core.Rules
     default-extensions: TypeOperators, PatternSynonyms
 
     -- Other library packages from which modules are imported.

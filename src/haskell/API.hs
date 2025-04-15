@@ -41,23 +41,8 @@ module API (Term,
 import Control.Monad.Reader
 import qualified Core.Terms as T
 import qualified Core.Proofs as P
--- TODO: is there a better way to do this?
-import Core.Proofs (ProofRule (..),
-    axTrue,
-    axAssume,
-    axAndI,
-    axAndE1,
-    axAndE2,
-    axNotnotI,
-    axNotnotE,
-    axOrI1,
-    axOrI2,
-    axOrE,
-    axOrFalseE,
-    axNotE,
-    axNegI,
-    axPBC,
-    ruleAndE3) 
+import Core.Proofs (ProofRule (..))
+import Core.Rules
 
 type Term = (T.:⊢)
 
