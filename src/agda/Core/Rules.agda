@@ -1,6 +1,7 @@
 module Core.Rules where
 
 open import Haskell.Prelude
+open import Haskell.Law.Eq
 
 open import Core.Terms
 open import Core.Proofs
@@ -18,7 +19,7 @@ axTrue = Axiom "true" (λ _ _ → Just ([] :⇒ ltrue))
 axAssume : ProofRule sig
 axAssume = Axiom "assume" check
   where check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-        check [] (t ∷ []) = Just ((t ∷ []) :⇒ t)
+        check [] (t ∷ a) = Just ((t ∷ a) :⇒ t)
         check _ _ = Nothing
 {-# COMPILE AGDA2HS axAssume #-}
 
@@ -84,7 +85,7 @@ axOrE = Axiom "orE" check
     check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
     check (        a :⇒ lor :·: f :·: g ∷ 
            (f₁ ∷ a₁) :⇒ c₁ ∷
-           (g₁ ∷ a₂) :⇒ c₂ ∷ []) _ = 
+           (g₁ ∷ a₂) :⇒ c₂ ∷ []) _ =
       if f == f₁ && g == g₁ && a == a₁ && a == a₂ && c₁ == c₂ then
         Just (a :⇒ c₁)
       else
@@ -162,25 +163,32 @@ ruleOrSym : ProofRule sig
 ruleOrSym = Rule "orSym" check elaborate proof
   where
     check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check ([] :⇒ (lor :·: f :·: g) ∷ []) ea = Just ([] :⇒ (lor :·: g :·: f))
+    check (a :⇒ (lor :·: f :·: g) ∷ []) ea = Just (a :⇒ (lor :·: g :·: f))
     check _ _ = Nothing
 
     elaborate : (prems : List (Sequent sig)) → Args sig → Maybe (Step sig prems)
-    elaborate ([] :⇒ (lor :·: f :·: g) ∷ []) _ =
-      let p = ([] :⇒ (lor :·: f :·: g)) in
+    elaborate (a :⇒ (lor :·: f :·: g) ∷ []) _ =
+      let p = (a :⇒ (lor :·: f :·: g)) in
        Just (MkStep (p ∷ []) refl
                     axOrE
                     (MkAssume (p ∷ []) refl p (∈H refl) ∷
-                     MkStep (p ∷ []) refl axOrI1 (MkStep (p ∷ []) refl axAssume [] (f ∷ []) ∷ []) (g ∷ []) ∷
-                     MkStep (p ∷ []) refl axOrI2 (MkStep (p ∷ []) refl axAssume [] (g ∷ []) ∷ []) (f ∷ [])
+                     MkStep (p ∷ []) refl axOrI2 (MkStep (p ∷ []) refl axAssume [] (f ∷ a) ∷ []) (g ∷ []) ∷
+                     MkStep (p ∷ []) refl axOrI1 (MkStep (p ∷ []) refl axAssume [] (g ∷ a) ∷ []) (f ∷ [])
                      ∷ [])
             [])
     elaborate _ _ = Nothing
 
     @0 proof : (prem : List (Sequent sig)) → (args : Args sig) → (check prem args) ≡ (checkStep (elaborate prem args))
-    proof []                             _ = refl
-    proof p@(([] :⇒ (lor :·: f :·: g)) ∷ []) _ = let foo = elaborate p [] in {! refl !}
-{-# COMPILE AGDA2HS ruleAndE3 #-}
+    proof [] _ = refl
+    proof p@((a :⇒ (lor :·: f :·: g)) ∷ []) _ with equality' f f refl | equality' g g refl | equality' a a refl | equality' (lor :·: g :·: f) (lor :·: g :·: f) refl
+    ... | f=f | g=g | a=a | pre=pre rewrite f=f rewrite g=g rewrite a=a rewrite pre=pre = refl
+    proof ((a :⇒ V x) ∷ _) args = refl
+    proof ((a :⇒ (V x :·: p₁)) ∷ _) args = refl
+    proof ((a :⇒ (land :·: p₂ :·: p₁)) ∷ _) args = refl
+    proof ((a :⇒ (lor :·: p₂ :·: p₁)) ∷ _ ∷ b) args = refl
+    proof ((a :⇒ (V (InS (InS (InS (InS x)))) :·: p₂ :·: p₁)) ∷ _) args = refl
+    proof ((a :⇒ (p :·: p₃ :·: p₂ :·: p₁)) ∷ _) args = refl
+{-# COMPILE AGDA2HS ruleOrSym #-}
 
  
  
