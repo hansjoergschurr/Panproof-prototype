@@ -4,22 +4,18 @@ module Main where
 
 import API
 import Control.Monad.Trans.Class (lift)
-import Control.Monad
-import Text.Printf
+import Control.Monad ( foldM )
+import Text.Printf ( printf )
 import Data.Map (Map)
+import System.Environment (getArgs)
 import qualified Data.Map as Map
-
-
-toElaborate :: [String]
-toElaborate = ["andE3"]
 
 {-
 This is a quick and dirty implementation of a proof checker.
 It uses the proof rules exported from the Agda side.  The API doesn't
 enforce that we check the proof correctly.  
 
-Adjust the `toElaborate` list above to change the rules that
-should be elaborated.
+The rules to elaborate are given as command line arguments.
 
 A small complication is that the premises of an elaborated step
 become assumptions of the proof tree it elaborates to.
@@ -47,25 +43,26 @@ checkProof :: SeqMap -> Int -> Step -> Checker CheckRes
 checkProof am cnt (Assume _ s)  
     | Map.member s am = return (s, cnt, Map.findWithDefault (-1) s am, am)
     | otherwise = do
-        lift $ printf "%d assume\t\t%s\n" cnt (show s)
+        lift $ printf "%d assert\t\t%s\n" cnt (show s)
         return (s, cnt + 1, cnt, Map.insert s cnt am)
-checkProof am cnt (Step _ (Axiom name check) s _) = do
+checkProof am cnt (Step _ (Axiom name check) s args) = do
     (prems, cnt', ns, am') <- foldM checkFold ([], cnt, [], am) s
-    case check prems [] of 
-        Nothing -> error "Proof checking failed!"
+    case check (reverse prems) args of
+        Nothing -> error $ "Checking axiom failed!" ++ show prems
         Just out -> do
-            lift $ printf "%d step    %7s %s\t%s\n" cnt' name (show ns) (show out)
+            lift $ printf "%d axiom   %7s %s\t%s\n" cnt' name (show ns) (show out)
             return (out, cnt' + 1, cnt', Map.insert out cnt' am')
-checkProof am cnt (Step _ (Rule name check elab) s _)
-    | name `elem` toElaborate = do
+checkProof am cnt (Step _ (Rule name check elab) s args) = do
+    toElaborate <- lift getArgs
+    if name `elem` toElaborate then do
         (prems, cnt', _, am') <- foldM checkFold ([], cnt, [], am) s
-        case elab prems [] of
-            Nothing -> error "Proof checking failed!"
+        case elab (reverse prems) args of
+            Nothing -> error "Elaboration rule step failed!"
             Just elaborated -> checkProof am' cnt' elaborated
-    | otherwise = do
+    else do
         (prems, cnt', ns, am') <- foldM checkFold ([], cnt, [], am) s
-        case check prems [] of 
-            Nothing -> error "Proof checking failed!"
+        case check (reverse prems) args of
+            Nothing -> error "Checking rule failed!"
             Just out -> do 
                 lift $ printf "%d step    %7s %s\t%s\n" cnt' name (show ns) (show out) 
                 return (out, cnt' + 1, cnt', Map.insert out cnt' am')
@@ -75,8 +72,8 @@ termTest = do
     t <- land @ lA @ lB
     lift $ print t
 
-proofTest :: Checker ()
-proofTest = do
+proofTest1 :: Checker ()
+proofTest1 = do
     t1 <- land @ lA @ (land @ lA @ lB)
     t2 <- lnot @ (lnot @ lC)
     let prem = [t1, t2]
@@ -88,5 +85,16 @@ proofTest = do
     _ <- checkProof Map.empty 1 s3
     return ()
 
+proofTest2 :: Checker ()
+proofTest2 = do
+    t1 <- land @ lA @ (land @ lA @ (lnot @ (lnot @ (lor @ lA @ lB))))
+    let prem = [t1]
+    a1 <- mkAssume prem t1
+    s1 <- mkStep prem ruleAndE3 [a1]
+    s2 <- mkStep prem axNotnotE [s1]
+    s3 <- mkStep prem ruleOrSym [s2]
+    _ <- checkProof Map.empty 1 s3
+    return ()
+
 main :: IO ()
-main = runChecker proofTest
+main = runChecker proofTest2

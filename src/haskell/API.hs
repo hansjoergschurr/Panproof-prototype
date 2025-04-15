@@ -35,7 +35,8 @@ module API (Term,
             axNotE,
             axNegI,
             axPBC,
-            ruleAndE3 
+            ruleAndE3,
+            ruleOrSym
            )  where
 
 import Control.Monad.Reader
@@ -58,7 +59,7 @@ runChecker c = runReaderT c T.sig
 mkCnst :: Int -> Checker Term
 mkCnst i = do
     ctx <- ask
-    case (T.mkCnst ctx i) of
+    case T.mkCnst ctx i of
         Nothing -> error "Unkown Constant"
         Just (_, v) -> return v
 
@@ -102,7 +103,7 @@ instance Show (T.:⊢) where
     l2 <- r
     ctx <- ask
     case T.mkApp ctx l1 l2 of
-        Nothing -> error "App: type checking error!" -- TODO: use IO exceptions
+        Nothing -> error $ "App: type checking of " ++ show l1 ++ " and " ++ show l2 ++ " failed."
         Just (_, t) -> return t
 
 type Sequent = P.Sequent
@@ -123,7 +124,7 @@ pattern Step prem rule steps args = P.MkStep prem rule steps args
 mkSequent :: Term -> Checker Sequent
 mkSequent t = do
     ctx <- ask
-    if (T.getSort ctx t) == T.𝔹 then
+    if T.getSort ctx t == T.𝔹 then
         return $ (P.:⇒) {P.antecedent = [], P.conclusion = t}
     else error "mkSequent: wrong sort" 
 
