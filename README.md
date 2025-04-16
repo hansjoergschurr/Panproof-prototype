@@ -9,7 +9,76 @@ The study has two purposes:
 of Agda.  This is potentially useful to build high performance proof processing tools for automated
 reasoning systems.
 
-## What? Solving the $n * (m + 1)$ problem.
+## What
+
+The code has been tested with Agda version 2.7.0.1, `agda2hs` version
+1.3, and `ghc` version 9.6.6.
+To run it, install `agda2hs` using `cabal install agda2hs`.  Then,
+generate the Haskell files from Agda by running the `genHaskell.sh` script
+from the main folder.
+
+Then `cabal run` prints a proof in a linear style:
+```bash
+> cabal run Panproof
+1 assert                 [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
+2 step      andE3 [1]    [] ⇒ (not (not ((or A) B)))
+3 axiom   notnotE [2]    [] ⇒ ((or A) B)
+4 step      orSym [3]    [] ⇒ ((or B) A)
+```
+
+Every line is a step, starting
+with the index of the step, then the type (`assert` for input assertions,
+`step` for steps using rules, and `axiom` for steps using an axiom).
+This proof derives $B \lor A$ from $A \land A \land \neg \neg (A \lor B)$.
+This uses two rules: a ternary conjunction elimination, and symmetry of disjunction.
+
+Under the hood, this proof isn't simply printed.  Every step is also checked
+by a formally verified proof checker.
+
+The `andE3` rule is somewhat unorthodox, let's break it into two binary conjunction-elimination steps:
+``` bash
+> cabal run Panproof -- andE3
+1 assert                [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
+2 axiom     andE2 [1]   [] ⇒ ((and A) (not (not ((or A) B))))
+3 axiom     andE2 [2]   [] ⇒ (not (not ((or A) B)))
+4 axiom   notnotE [3]   [] ⇒ ((or A) B)
+5 step      orSym [4]   [] ⇒ ((or B) A)
+```
+
+Of course, this elaboration is also formally verified.  In fact, the existence
+of the elaboration function is the proof of the correctness of the checker.
+It's a bit like executing both "ends" of the Curry-Howard correspondence.
+
+Of course, we can also turn `orSym` into a subproof:
+```bash
+> cabal run Panproof -- orSym
+1 assert                   [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
+2 step      andE3 [1]      [] ⇒ (not (not ((or A) B)))
+3 axiom   notnotE [2]      [] ⇒ ((or A) B)
+4 axiom    assume []       [A] ⇒ A
+5 axiom      orI2 [4]      [A] ⇒ ((or B) A)
+6 axiom    assume []       [B] ⇒ B
+7 axiom      orI1 [6]      [B] ⇒ ((or B) A)
+8 axiom       orE [7,5,3]  [] ⇒ ((or B) A)
+```
+or expand both:
+```bash
+cabal run Panproof -- orSym andE3
+1 assert                   [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
+2 axiom     andE2 [1]      [] ⇒ ((and A) (not (not ((or A) B))))
+3 axiom     andE2 [2]      [] ⇒ (not (not ((or A) B)))
+4 axiom   notnotE [3]      [] ⇒ ((or A) B)
+5 axiom    assume []       [A] ⇒ A
+6 axiom      orI2 [5]      [A] ⇒ ((or B) A)
+7 axiom    assume []       [B] ⇒ B
+8 axiom      orI1 [7]      [B] ⇒ ((or B) A)
+9 axiom       orE [8,6,4]  [] ⇒ ((or B) A)
+```
+
+Under the hood, this proof of concept implements a very simple
+propositional logic with three fixed constants ($A$, $B$, $C$)
+
+## Why? Solving the $n * (m + 1)$ problem.
 
 Many automated reasoning systems, like SMT solvers and superposition provers, produce proofs to certify
 their output.
@@ -77,68 +146,6 @@ get a high-performance proof checker.  For the example above, `agda2hs` generate
 ```haskell
 data ProofRule = Rule String ([Sequent] -> Maybe Sequent)
                              ([Sequent] -> Maybe Step)
-```
-
-## The Examples
-
-The proof of concept implements a very simple propositional logic with three
-fixed constants ($A$, $B$, $C$)
-The code has been tested with Agda version 2.7.0.1, `agda2hs` version
-1.3, and `ghc` version 9.6.6.
-
-First, install `agda2hs` using `cabal install agda2hs`.  Then,
-generate the Haskell files from Agda by running the `genHaskell.sh` script
-from the main folder.
-
-Then `cabal run` prints and checks the example proof without any elaboration:
-
-```bash
-> cabal run Panproof
-1 assert                 [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
-2 step      andE3 [1]    [] ⇒ (not (not ((or A) B)))
-3 axiom   notnotE [2]    [] ⇒ ((or A) B)
-4 step      orSym [3]    [] ⇒ ((or B) A)
-```
-
-This is a proof printed in a linear style.  Every line is a step, starting
-with the index of the step, then the type (`assert` for input assertions,
-`step` for steps using rules, and `axiom` for steps using an axiom).
-This proof derives $B \lor A$ from $A \land A \land \neg \neg (A \lor B)$.
-This uses two rules: a ternary conjunction elimination, and symmetry of disjunction.
-
-We can elaborate `andE3` into two binary conjunction-elimination steps:
-``` bash
-> cabal run Panproof -- andE3
-1 assert                [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
-2 axiom     andE2 [1]   [] ⇒ ((and A) (not (not ((or A) B))))
-3 axiom     andE2 [2]   [] ⇒ (not (not ((or A) B)))
-4 axiom   notnotE [3]   [] ⇒ ((or A) B)
-5 step      orSym [4]   [] ⇒ ((or B) A)
-```
-or `orSym` into a subproof of the symmetry:
-```bash
-> cabal run Panproof -- orSym
-1 assert                   [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
-2 step      andE3 [1]      [] ⇒ (not (not ((or A) B)))
-3 axiom   notnotE [2]      [] ⇒ ((or A) B)
-4 axiom    assume []       [A] ⇒ A
-5 axiom      orI2 [4]      [A] ⇒ ((or B) A)
-6 axiom    assume []       [B] ⇒ B
-7 axiom      orI1 [6]      [B] ⇒ ((or B) A)
-8 axiom       orE [7,5,3]  [] ⇒ ((or B) A)
-```
-or both:
-```bash
-cabal run Panproof -- orSym andE3
-1 assert                   [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
-2 axiom     andE2 [1]      [] ⇒ ((and A) (not (not ((or A) B))))
-3 axiom     andE2 [2]      [] ⇒ (not (not ((or A) B)))
-4 axiom   notnotE [3]      [] ⇒ ((or A) B)
-5 axiom    assume []       [A] ⇒ A
-6 axiom      orI2 [5]      [A] ⇒ ((or B) A)
-7 axiom    assume []       [B] ⇒ B
-8 axiom      orI1 [7]      [B] ⇒ ((or B) A)
-9 axiom       orE [8,6,4]  [] ⇒ ((or B) A)
 ```
 
 ## File Structure
