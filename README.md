@@ -93,7 +93,8 @@ reasoning systems, and to integrate them with $m$ applications, we have to imple
 pipelines.
 
 This repository is a proof-of-concept for a framework that can be used as a flexible checking and elaboration
-pipeline.  While the logic is fixed, we define **proof rules** in a flexible manner.
+pipeline.  While the logic is fixed, we define **proof rules** in a flexible manner.  Note that while the pipeline
+is flexible with regards to the rules it supports, the logic itself is fixed.  It is not a logical framework.
 
 As an Agda datatype:
 
