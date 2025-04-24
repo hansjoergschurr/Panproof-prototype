@@ -39,17 +39,17 @@ checkMap : {@0 Γ : Signature} {@0 prem : List (Sequent Γ)} → List (Step Γ p
 
 data ProofRule (@0 Γ : Signature) : Set where
   Axiom :
-      (name : String)
+      (name  : String)
       (check : (List (Sequent Γ) → Args Γ → Maybe (Sequent Γ)))
     ---------------------------------------------------
     → ProofRule Γ
 
   Rule :
-      (name : String)
+      (name      : String)
     → (check     : (List (Sequent Γ) → Args Γ → Maybe (Sequent Γ)))
     → (elaborate : (prems : List (Sequent Γ)) → Args Γ → Maybe (Step Γ prems))
-    → (@0 proof : ((prem : List (Sequent Γ)) → (args : Args Γ) →
-                   (check prem args) ≡ (checkStep (elaborate prem args))))
+    → (@0 proof  : ((prem : List (Sequent Γ)) → (args : Args Γ) →
+                    (check prem args) ≡ (checkStep (elaborate prem args))))
     ---------------------------------------------------
     → ProofRule Γ
 {-# COMPILE AGDA2HS ProofRule #-}
@@ -91,7 +91,7 @@ lookupInParam : ∀ {@0 Γ : Signature} → (s : Sequent Γ) → (prem : List (S
 lookupInParam t [] = False ⟨ (λ ()) ⟩
 lookupInParam {Γ} t (x ∷ prem) =
     if (isSequentEq {Γ} Eq.== t) x then 
-      (λ ⦃ h  ⦄ → True ⟨ (∈H {Γ} (equality t x h)) ⟩)
+      (λ ⦃ h ⦄ → True ⟨ (∈H {Γ} (equality t x h)) ⟩)
     else (λ ⦃ h ⦄ → case lookupInParam {Γ} t prem of λ where
       (False ⟨ ¬p ⟩) → False ⟨ notPossible h ¬p ⟩
       (True ⟨ p ⟩) → True ⟨ (∈T p) ⟩

@@ -189,6 +189,3 @@ ruleOrSym = Rule "orSym" check elaborate proof
     proof ((a :⇒ (V (InS (InS (InS (InS x)))) :·: p₂ :·: p₁)) ∷ _) args = refl
     proof ((a :⇒ (p :·: p₃ :·: p₂ :·: p₁)) ∷ _) args = refl
 {-# COMPILE AGDA2HS ruleOrSym #-}
-
- 
- 

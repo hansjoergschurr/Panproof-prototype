@@ -43,14 +43,14 @@ checkProof :: SeqMap -> Int -> Step -> Checker CheckRes
 checkProof am cnt (Assume _ s)  
     | Map.member s am = return (s, cnt, Map.findWithDefault (-1) s am, am)
     | otherwise = do
-        lift $ printf "%d assert\t\t%s\n" cnt (show s)
+        lift $ printf "%d assert %s\n" cnt (show s)
         return (s, cnt + 1, cnt, Map.insert s cnt am)
 checkProof am cnt (Step _ (Axiom name check) s args) = do
     (prems, cnt', ns, am') <- foldM checkFold ([], cnt, [], am) s
     case check (reverse prems) args of
         Nothing -> error $ "Checking axiom failed!" ++ show prems
         Just out -> do
-            lift $ printf "%d axiom   %7s %s\t%s\n" cnt' name (show ns) (show out)
+            lift $ printf "%d use axiom %7s on %s\t%s\n" cnt' name (show ns) (show out)
             return (out, cnt' + 1, cnt', Map.insert out cnt' am')
 checkProof am cnt (Step _ (Rule name check elab) s args) = do
     toElaborate <- lift getArgs
@@ -64,7 +64,7 @@ checkProof am cnt (Step _ (Rule name check elab) s args) = do
         case check (reverse prems) args of
             Nothing -> error "Checking rule failed!"
             Just out -> do 
-                lift $ printf "%d step    %7s %s\t%s\n" cnt' name (show ns) (show out) 
+                lift $ printf "%d use rule  %7s on %s\t%s\n" cnt' name (show ns) (show out) 
                 return (out, cnt' + 1, cnt', Map.insert out cnt' am')
 
 termTest :: Checker ()

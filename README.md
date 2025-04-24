@@ -17,32 +17,33 @@ To run it, install `agda2hs` using `cabal install agda2hs`.  Then,
 generate the Haskell files from Agda by running the `genHaskell.sh` script
 from the main folder.
 
-Then `cabal run` prints a proof in a linear style:
+Then `cabal run` prints a proof as a list of steps:
 ```bash
 > cabal run Panproof
-1 assert                 [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
-2 step      andE3 [1]    [] ⇒ (not (not ((or A) B)))
-3 axiom   notnotE [2]    [] ⇒ ((or A) B)
-4 step      orSym [3]    [] ⇒ ((or B) A)
+1 assert [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
+2 use rule    andE3 on [1]	[] ⇒ (not (not ((or A) B)))
+3 use axiom notnotE on [2]	[] ⇒ ((or A) B)
+4 use rule    orSym on [3]	[] ⇒ ((or B) A)
 ```
 
-Every line is a step, starting
-with the index of the step, then the type (`assert` for input assertions,
-`step` for steps using rules, and `axiom` for steps using an axiom).
-This proof derives $B \lor A$ from $A \land A \land \neg \neg (A \lor B)$.
-This uses two rules: a ternary conjunction elimination, and symmetry of disjunction.
+Every line is an indexed step.
+There are two distinct kinds of proof rules: an `axiom` is a axiom of propositional
+logic, a `rule` is a derived proof rule.
+
+This proof derives $B \lor A$ from $A \land A \land \neg \neg (A \lor B)$ using
+two derived rules: a ternary conjunction elimination, and symmetry of disjunction.
 
 Under the hood, this proof isn't simply printed.  Every step is also checked
 by a formally verified proof checker.
 
 The `andE3` rule is somewhat unorthodox, let's break it into two binary conjunction-elimination steps:
 ``` bash
-> cabal run Panproof -- andE3
-1 assert                [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
-2 axiom     andE2 [1]   [] ⇒ ((and A) (not (not ((or A) B))))
-3 axiom     andE2 [2]   [] ⇒ (not (not ((or A) B)))
-4 axiom   notnotE [3]   [] ⇒ ((or A) B)
-5 step      orSym [4]   [] ⇒ ((or B) A)
+> cabal run Panproof andE3
+1 assert [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
+2 use axiom   andE2 on [1]	[] ⇒ ((and A) (not (not ((or A) B))))
+3 use axiom   andE2 on [2]	[] ⇒ (not (not ((or A) B)))
+4 use axiom notnotE on [3]	[] ⇒ ((or A) B)
+5 use rule    orSym on [4]	[] ⇒ ((or B) A)
 ```
 
 Of course, this elaboration is also formally verified.  In fact, the existence
@@ -51,28 +52,28 @@ It's a bit like executing both "ends" of the Curry-Howard correspondence.
 
 Of course, we can also turn `orSym` into a subproof:
 ```bash
-> cabal run Panproof -- orSym
-1 assert                   [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
-2 step      andE3 [1]      [] ⇒ (not (not ((or A) B)))
-3 axiom   notnotE [2]      [] ⇒ ((or A) B)
-4 axiom    assume []       [A] ⇒ A
-5 axiom      orI2 [4]      [A] ⇒ ((or B) A)
-6 axiom    assume []       [B] ⇒ B
-7 axiom      orI1 [6]      [B] ⇒ ((or B) A)
-8 axiom       orE [7,5,3]  [] ⇒ ((or B) A)
+> cabal run Panproof orSym
+1 assert [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
+2 use rule    andE3 on [1]	[] ⇒ (not (not ((or A) B)))
+3 use axiom notnotE on [2]	[] ⇒ ((or A) B)
+4 use axiom  assume on []	[A] ⇒ A
+5 use axiom    orI2 on [4]	[A] ⇒ ((or B) A)
+6 use axiom  assume on []	[B] ⇒ B
+7 use axiom    orI1 on [6]	[B] ⇒ ((or B) A)
+8 use axiom     orE on [7,5,3]	[] ⇒ ((or B) A)
 ```
 or expand both:
 ```bash
-cabal run Panproof -- orSym andE3
-1 assert                   [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
-2 axiom     andE2 [1]      [] ⇒ ((and A) (not (not ((or A) B))))
-3 axiom     andE2 [2]      [] ⇒ (not (not ((or A) B)))
-4 axiom   notnotE [3]      [] ⇒ ((or A) B)
-5 axiom    assume []       [A] ⇒ A
-6 axiom      orI2 [5]      [A] ⇒ ((or B) A)
-7 axiom    assume []       [B] ⇒ B
-8 axiom      orI1 [7]      [B] ⇒ ((or B) A)
-9 axiom       orE [8,6,4]  [] ⇒ ((or B) A)
+cabal run Panproof orSym andE3
+1 assert [] ⇒ ((and A) ((and A) (not (not ((or A) B)))))
+2 use axiom   andE2 on [1]	[] ⇒ ((and A) (not (not ((or A) B))))
+3 use axiom   andE2 on [2]	[] ⇒ (not (not ((or A) B)))
+4 use axiom notnotE on [3]	[] ⇒ ((or A) B)
+5 use axiom  assume on []	[A] ⇒ A
+6 use axiom    orI2 on [5]	[A] ⇒ ((or B) A)
+7 use axiom  assume on []	[B] ⇒ B
+8 use axiom    orI1 on [7]	[B] ⇒ ((or B) A)
+9 use axiom     orE on [8,6,4]	[] ⇒ ((or B) A)
 ```
 
 Under the hood, this proof of concept implements a very simple
@@ -92,9 +93,9 @@ proof output vary widely, and often expose implementation details.  Hence, to ch
 reasoning systems, and to integrate them with $m$ applications, we have to implement $n * (m + 1)$ translation
 pipelines.
 
-This repository is a proof-of-concept for a framework that can be used as a flexible checking and elaboration
-pipeline.  While the logic is fixed, we define **proof rules** in a flexible manner.  Note that while the pipeline
-is flexible with regards to the rules it supports, the logic itself is fixed.  It is not a logical framework.
+This repository is a proof-of-concept for a framework that can be used as a proof preprocessor to increase the
+commonality of the proofs.  While the logic is fixed, we define **proof rules** in a flexible manner.
+Note that becuase the logic itself is fixed, Panproof is not a logical framework.
 
 As an Agda datatype:
 
