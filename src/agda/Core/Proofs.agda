@@ -40,16 +40,16 @@ checkMap : {@0 Γ : Signature} {@0 prem : List (Sequent Γ)} → List (Step Γ p
 data ProofRule (@0 Γ : Signature) : Set where
   Axiom :
       (name  : String)
-      (check : (List (Sequent Γ) → Args Γ → Maybe (Sequent Γ)))
+      (infer : (List (Sequent Γ) → Args Γ → Maybe (Sequent Γ)))
     ---------------------------------------------------
     → ProofRule Γ
 
   Rule :
       (name      : String)
-    → (check     : (List (Sequent Γ) → Args Γ → Maybe (Sequent Γ)))
+    → (infer     : (List (Sequent Γ) → Args Γ → Maybe (Sequent Γ)))
     → (elaborate : (prems : List (Sequent Γ)) → Args Γ → Maybe (Step Γ prems))
     → (@0 proof  : ((prem : List (Sequent Γ)) → (args : Args Γ) →
-                    (check prem args) ≡ (checkStep (elaborate prem args))))
+                    (infer prem args) ≡ (checkStep (elaborate prem args))))
     ---------------------------------------------------
     → ProofRule Γ
 {-# COMPILE AGDA2HS ProofRule #-}
@@ -80,8 +80,8 @@ checkMap (s ∷ ss) = do
 
 checkStep {Γ} Nothing = Nothing
 checkStep {Γ} (Just (MkAssume _ _ s _)) = Just s
-checkStep {Γ} (Just (MkStep _ _ (Axiom _ check)            prem args)) = checkMap prem >>= λ p → check p args
-checkStep {Γ} (Just (MkStep _ _ (Rule _ check elaborate _) prem args)) = checkMap prem >>= λ p → check p args
+checkStep {Γ} (Just (MkStep _ _ (Axiom _ infer)            prem args)) = checkMap prem >>= λ p → infer p args
+checkStep {Γ} (Just (MkStep _ _ (Rule _ infer elaborate _) prem args)) = checkMap prem >>= λ p → infer p args
 
 -------------------------------------
 -- Safe API functions

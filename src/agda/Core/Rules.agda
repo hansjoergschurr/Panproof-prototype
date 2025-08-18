@@ -17,121 +17,121 @@ axTrue = Axiom "true" (λ _ _ → Just ([] :⇒ ltrue))
 {-# COMPILE AGDA2HS axTrue #-}
 
 axAssume : ProofRule sig
-axAssume = Axiom "assume" check
-  where check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-        check [] (t ∷ a) = Just ((t ∷ a) :⇒ t)
-        check _ _ = Nothing
+axAssume = Axiom "assume" infer
+  where infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+        infer [] (t ∷ a) = Just ((t ∷ a) :⇒ t)
+        infer _ _ = Nothing
 {-# COMPILE AGDA2HS axAssume #-}
 
 axAndI : ProofRule sig
-axAndI = Axiom "andI" check
+axAndI = Axiom "andI" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check ((a1 :⇒ x) ∷ (a2 :⇒ y) ∷ []) _ = Just ((a1 ++ a2) :⇒ (land :·: x :·: y))
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer ((a1 :⇒ x) ∷ (a2 :⇒ y) ∷ []) _ = Just ((a1 ++ a2) :⇒ (land :·: x :·: y))
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axAndI #-}
 
 axAndE1 : ProofRule sig
-axAndE1 = Axiom "andE1" check
+axAndE1 = Axiom "andE1" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a :⇒ (land :·: x :·: y) ∷ []) _ = Just (a :⇒ x)
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a :⇒ (land :·: x :·: y) ∷ []) _ = Just (a :⇒ x)
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axAndE1 #-}
 
 axAndE2 : ProofRule sig
-axAndE2 = Axiom "andE2" check
+axAndE2 = Axiom "andE2" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a :⇒ (land :·: x :·: y) ∷ []) _ = Just (a :⇒ y)
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a :⇒ (land :·: x :·: y) ∷ []) _ = Just (a :⇒ y)
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axAndE2 #-}
 
 axNotnotI : ProofRule sig
-axNotnotI = Axiom "notnotI" check
+axNotnotI = Axiom "notnotI" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a :⇒ f ∷ []) _ = Just (a :⇒ lnot :·: (lnot :·: f))
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a :⇒ f ∷ []) _ = Just (a :⇒ lnot :·: (lnot :·: f))
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axNotnotI #-}
 
 axNotnotE : ProofRule sig
-axNotnotE = Axiom "notnotE" check
+axNotnotE = Axiom "notnotE" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a :⇒ lnot :·: (lnot :·: f) ∷ []) _ = Just (a :⇒ f)
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a :⇒ lnot :·: (lnot :·: f) ∷ []) _ = Just (a :⇒ f)
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axNotnotE #-}
 
 axOrI1 : ProofRule sig
-axOrI1 = Axiom "orI1" check
+axOrI1 = Axiom "orI1" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a :⇒ f ∷ []) (g ∷ []) = Just (a :⇒ lor :·: f :·: g )
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a :⇒ f ∷ []) (g ∷ []) = Just (a :⇒ lor :·: f :·: g )
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axOrI1 #-}
 
 axOrI2 : ProofRule sig
-axOrI2 = Axiom "orI2" check
+axOrI2 = Axiom "orI2" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a :⇒ g ∷ []) (f ∷ []) = Just (a :⇒ lor :·: f :·: g )
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a :⇒ g ∷ []) (f ∷ []) = Just (a :⇒ lor :·: f :·: g )
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axOrI2 #-}
 
 axOrE : ProofRule sig
-axOrE = Axiom "orE" check
+axOrE = Axiom "orE" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (        a :⇒ lor :·: f :·: g ∷ 
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (        a :⇒ lor :·: f :·: g ∷ 
            (f₁ ∷ a₁) :⇒ c₁ ∷
            (g₁ ∷ a₂) :⇒ c₂ ∷ []) _ =
       if f == f₁ && g == g₁ && a == a₁ && a == a₂ && c₁ == c₂ then
         Just (a :⇒ c₁)
       else
         Nothing
-    check _ _ = Nothing
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axOrE #-}
 
 axOrFalseE : ProofRule sig
-axOrFalseE = Axiom "falseE" check
+axOrFalseE = Axiom "falseE" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a :⇒ lfalse ∷ []) (f ∷ []) = Just (a :⇒ f)
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a :⇒ lfalse ∷ []) (f ∷ []) = Just (a :⇒ f)
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axOrFalseE #-}
 
 axNotE : ProofRule sig
-axNotE = Axiom "notE" check
+axNotE = Axiom "notE" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a₁ :⇒ f₁ ∷ a₂ :⇒ lnot :·: f₂ ∷ []) (f ∷ []) =
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a₁ :⇒ f₁ ∷ a₂ :⇒ lnot :·: f₂ ∷ []) (f ∷ []) =
        if a₁ == a₂ && f₁ == f₂ then Just (a₁ :⇒ lfalse) else Nothing
-    check _ _ = Nothing
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axNotE #-}
 
 axNegI : ProofRule sig
-axNegI = Axiom "negI" check
+axNegI = Axiom "negI" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check ((f ∷ a) :⇒ lfalse ∷ []) _ = Just (a :⇒ f)
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer ((f ∷ a) :⇒ lfalse ∷ []) _ = Just (a :⇒ f)
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axNegI #-}
 
 axPBC : ProofRule sig
-axPBC = Axiom "pbc" check
+axPBC = Axiom "pbc" infer
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (((lnot :·: f) ∷ a) :⇒ lfalse ∷ []) _ = Just (a :⇒ f)
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (((lnot :·: f) ∷ a) :⇒ lfalse ∷ []) _ = Just (a :⇒ f)
+    infer _ _ = Nothing
 {-# COMPILE AGDA2HS axPBC #-}
 
 ruleAndE3 : ProofRule sig
-ruleAndE3 = Rule "andE3" check elaborate proof
+ruleAndE3 = Rule "andE3" infer elaborate proof
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a :⇒ (land :·: f :·: (land :·: g :·: u)) ∷ []) ea = Just (a :⇒ u)
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a :⇒ (land :·: f :·: (land :·: g :·: u)) ∷ []) ea = Just (a :⇒ u)
+    infer _ _ = Nothing
 
     elaborate : (prems : List (Sequent sig)) → Args sig → Maybe (Step sig prems)
     elaborate (a :⇒ (land :·: f :·: (land :·: g :·: u)) ∷ []) _ =
@@ -143,7 +143,8 @@ ruleAndE3 = Rule "andE3" check elaborate proof
                              (MkAssume (p ∷ []) refl p (∈H refl) ∷ []) [] ∷ []) [])
     elaborate _ _ = Nothing
 
-    @0 proof : (prem : List (Sequent sig)) → (args : Args sig) → (check prem args) ≡ (checkStep (elaborate prem args))
+    @0 proof : (prem : List (Sequent sig)) → (args : Args sig)
+             → (infer prem args) ≡ (checkStep (elaborate prem args))
     proof [] a                                                                      = refl
     proof ((_ :⇒ (land :·: f :·: (land :·: g :·: u))) ∷ [])    _                    = refl
     proof ((_ :⇒ V x) ∷ _)                                   _                      = refl
@@ -160,11 +161,11 @@ ruleAndE3 = Rule "andE3" check elaborate proof
 {-# COMPILE AGDA2HS ruleAndE3 #-}
 
 ruleOrSym : ProofRule sig
-ruleOrSym = Rule "orSym" check elaborate proof
+ruleOrSym = Rule "orSym" infer elaborate proof
   where
-    check : List (Sequent sig) → Args sig → Maybe (Sequent sig)
-    check (a :⇒ (lor :·: f :·: g) ∷ []) ea = Just (a :⇒ (lor :·: g :·: f))
-    check _ _ = Nothing
+    infer : List (Sequent sig) → Args sig → Maybe (Sequent sig)
+    infer (a :⇒ (lor :·: f :·: g) ∷ []) ea = Just (a :⇒ (lor :·: g :·: f))
+    infer _ _ = Nothing
 
     elaborate : (prems : List (Sequent sig)) → Args sig → Maybe (Step sig prems)
     elaborate (a :⇒ (lor :·: f :·: g) ∷ []) _ =
@@ -178,7 +179,7 @@ ruleOrSym = Rule "orSym" check elaborate proof
             [])
     elaborate _ _ = Nothing
 
-    @0 proof : (prem : List (Sequent sig)) → (args : Args sig) → (check prem args) ≡ (checkStep (elaborate prem args))
+    @0 proof : (prem : List (Sequent sig)) → (args : Args sig) → (infer prem args) ≡ (checkStep (elaborate prem args))
     proof [] _ = refl
     proof p@((a :⇒ (lor :·: f :·: g)) ∷ []) _ with equality' f f refl | equality' g g refl | equality' a a refl | equality' (lor :·: g :·: f) (lor :·: g :·: f) refl
     ... | f=f | g=g | a=a | pre=pre rewrite f=f rewrite g=g rewrite a=a rewrite pre=pre = refl
