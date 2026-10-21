@@ -5,6 +5,6 @@ pkgs.mkShell {
 
   hardeningDisable = [ "all" ];
   buildInputs = with pkgs; [
-    pkg-config zlib
-	];
+    pkg-config zlib cabal-install ghc
+  ];
 }

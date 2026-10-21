@@ -11,6 +11,8 @@ open import Haskell.Extra.Refinement hiding (proof)
 open import Core.Terms
 
 record Sequent (@0 Γ : Signature) : Set where
+  no-eta-equality
+  pattern
   constructor _:⇒_
   field
     antecedent : List (Γ :⊢ 𝔹)
